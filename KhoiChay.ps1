@@ -1,51 +1,49 @@
 # ==============================================================================
-# SCRIPT MỒI: FIX LỖI RÁP LINK (VERSION CHUẨN 100%)
+# SCRIPT MỒI: BẢN THỦ CÔNG (CHỐNG LỖI RÁP BIẾN 100%)
 # ==============================================================================
 
 # 1. Ép bảo mật TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# 2. ĐỊA CHỈ GỐC (Bác giữ nguyên link này, KHÔNG thêm dấu / ở cuối)
-$LinkGoc = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
+# 2. Cấu hình đường dẫn
+$Goc = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
+$Tam = Join-Path $env:TEMP "AutoSoftManager"
 
-$DanhSachFile = @(
-    "Main.ps1", "Core.ps1", "Menu.ps1", 
-    "Tab_Windows.ps1", "Tab_Office.ps1", 
-    "Tab_Hardware.ps1", "Tab_Printer.ps1", "Tab_Optimizer.ps1"
-)
+# 3. Tạo thư mục tạm
+if (Test-Path $Tam) { Remove-Item -Path "$Tam\*" -Force -Recurse -ErrorAction SilentlyContinue }
+else { New-Item -ItemType Directory -Force -Path $Tam | Out-Null }
 
-# 3. Làm sạch thư mục tạm
-$ThuMucTam = Join-Path $env:TEMP "AutoSoftManager"
-if (Test-Path $ThuMucTam) { 
-    Remove-Item -Path "$ThuMucTam\*" -Force -Recurse -ErrorAction SilentlyContinue 
-} else { 
-    New-Item -ItemType Directory -Force -Path $ThuMucTam | Out-Null 
-}
+Write-Host ">>> DANG TAI DU LIEU TU GITHUB..." -ForegroundColor Cyan
 
-Write-Host ">>> DANG TAI DU LIEU TU KHO [PM]..." -ForegroundColor Cyan
-
-# 4. Tải file với cơ chế ráp link chính xác
-$MaRandom = Get-Random
-foreach ($File in $DanhSachFile) {
-    # Ráp thủ công để đảm bảo: LinkGoc + / + Tên File + ?v= + Mã Random
-    $LinkTai = "$LinkGoc/$($File)?v=$MaRandom"
-    $DuongDanLuu = Join-Path $ThuMucTam $File
-    
+# 4. HÀM TẢI FILE SIÊU CẤP (Viết riêng để bắt lỗi từng file)
+function TaiFile($TenFile) {
+    $L = "$Goc/$TenFile?v=$(Get-Random)"
+    $D = Join-Path $Tam $TenFile
     try {
-        Write-Host "-> Đang tải: $File" -ForegroundColor Yellow
-        Invoke-WebRequest -Uri $LinkTai -OutFile $DuongDanLuu -UseBasicParsing -ErrorAction Stop
-        Write-Host "   => OK!" -ForegroundColor Green
+        Invoke-WebRequest -Uri $L -OutFile $D -UseBasicParsing -ErrorAction Stop
+        Write-Host " -> OK: $TenFile" -ForegroundColor Green
     } catch {
-        Write-Host "[!] LOI: Khong tai duoc $File" -ForegroundColor Red
-        Write-Host "   => Link bi loi: $LinkTai" -ForegroundColor Gray
-        Start-Sleep -Seconds 10
-        exit
+        Write-Host " [!] LOI: Khong tai duoc $TenFile" -ForegroundColor Red
+        Write-Host "     Link loi: $L" -ForegroundColor Gray
     }
 }
 
-# 5. Khởi chạy
-$FileMain = Join-Path $ThuMucTam "Main.ps1"
-if (Test-Path $FileMain) {
-    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$FileMain`""
+# 5. LIỆT KÊ ĐÍCH DANH TỪNG FILE (Không dùng vòng lặp biến để tránh lỗi 400)
+TaiFile "Core.ps1"
+TaiFile "Menu.ps1"
+TaiFile "Tab_Windows.ps1"
+TaiFile "Tab_Office.ps1"
+TaiFile "Tab_Hardware.ps1"
+TaiFile "Tab_Printer.ps1"
+TaiFile "Tab_Optimizer.ps1"
+TaiFile "Main.ps1"
+
+# 6. Kiểm tra file cuối và chạy
+if (Test-Path "$Tam\Main.ps1") {
+    Write-Host ">>> KHOI CHAY..." -ForegroundColor Green
+    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Tam\Main.ps1`""
+} else {
+    Write-Host "!!! THAT BAI: Thieu file Main.ps1. Hay kiem tra lai ten kho GitHub!" -ForegroundColor Red
+    Start-Sleep -Seconds 10
 }
 exit

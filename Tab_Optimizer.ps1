@@ -216,6 +216,28 @@ $btnOptOffice.Add_Click({
             } finally {
                 if ($word) { $word.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null }
             }
+            # ==============================================================================
+            # ÉP HỆ THỐNG CẬP NHẬT THAY ĐỔI NGAY LẬP TỨC (KHÔNG CẦN REBOOT)
+            # ==============================================================================
+            GhiLog "-> Đang ép hệ thống áp dụng cấu hình mới..."
+            
+            # 1. Thông báo cho Windows cập nhật thay đổi Registry (Dùng cho Ngày/Tháng/Số)
+            $Signature = '[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);'
+            $UpdateWin = Add-Type -MemberDefinition $Signature -Name "Win32SendMessage" -Namespace Win32 -PassThru
+            $result = [UIntPtr]::Zero
+            $UpdateWin::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 0x02, 5000, [ref]$result) | Out-Null
+            
+            # 2. Xóa cache cấu hình Registry của Office (Ép Office đọc lại thiết lập mới)
+            $VerOffice = "16.0" # Tập trung bản phổ biến nhất
+            $CachePath = "HKCU:\Software\Microsoft\Office\$VerOffice\Common\Identity\Identities"
+            if (Test-Path $CachePath) {
+                Remove-Item -Path $CachePath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            
+            # 3. Khởi động lại Explorer để cập nhật định dạng Ngày/Tháng ở Taskbar
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+            
+            GhiLog "-> Hệ thống đã cập nhật cấu hình mới thành công!"
 
             GhiLog ">>> HOÀN TẤT TẤT CẢ TÁC VỤ OFFICE!"
             [System.Windows.Forms.MessageBox]::Show("Office đã được tối ưu siêu cấp!", "Thành công")
@@ -298,5 +320,6 @@ $btnOptRestoreOffice.Add_Click({
         }
     }
 })
+
 
 

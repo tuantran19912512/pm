@@ -3,7 +3,10 @@
 # ==============================================================================
 
 # 1. MÃ BĂM MẬT KHẨU (Thay dãy dưới đây bằng dãy bác vừa tạo ở Bước 1)
-$HashChuan = "95C551F5E06934F3351B512BC7CC299FF41E5CC895590338991E24A9DFA8B9FC" # Đây là mã của 'Kto@2026'
+$HashChuan = @(
+                "95C551F5E06934F3351B512BC7CC299FF41E5CC895590338991E24A9DFA8B9FC",# Đây là mã của 'Kto@2026'
+                "F12552273BB3CD31F3DDE094891BD456EEEA8F86F4A87763C49C592CC22AC169",# 0357980104
+) 
 
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "   HE THONG QUAN LY PHAN MEM - PM TOOL    " -ForegroundColor Cyan
@@ -71,6 +74,7 @@ if (Test-Path "$T\Main.ps1") {
     Start-Sleep -Seconds 10
 }
 exit
+
 
 
 

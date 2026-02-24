@@ -156,58 +156,62 @@ $btnOptOffice.Add_Click({
             Set-Reg $Intl "iMeasure" 0 "String" # Chuyển Windows sang đơn vị cm
 
             # 4. CAN THIỆP NORMAL.DOTM (RULER, CM, SCALE A4, NĐ 30)
-            # --- THAY THẾ ĐOẠN BƯỚC 4 CŨ BẰNG ĐOẠN NÀY ---
-            GhiLog " -> Đang xử lý file mẫu Normal.dotm (Nghị định 30 & Ruler)..."
-            try {
-                # 1. Tìm đường dẫn file Normal.dotm thực tế
-                $AppData = [Environment]::GetFolderPath("ApplicationData")
-                $NormalPath = Join-Path $AppData "Microsoft\Templates\Normal.dotm"
-                
-                if (Test-Path $NormalPath) {
-                    GhiLog "    [+] Đã tìm thấy file mẫu tại: Templates"
-                    # Gỡ bỏ thuộc tính Read-only để tránh lỗi quyền ghi
-                    Set-ItemProperty -Path $NormalPath -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
-                }
+            # --- BẢN SỬA LỖI: CAN THIỆP NORMAL.DOTM VÀ TẮT SCALE A4 QUA REGISTRY ---
+GhiLog " -> Đang xử lý cấu hình Word (NĐ 30, Ruler, cm, Scale A4)..."
+try {
+    # 1. TÌM VÀ GIẢI PHÓNG QUYỀN GHI FILE NORMAL.DOTM
+    $AppData = [Environment]::GetFolderPath("ApplicationData")
+    $NormalPath = Join-Path $AppData "Microsoft\Templates\Normal.dotm"
+    if (Test-Path $NormalPath) {
+        Set-ItemProperty -Path $NormalPath -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
+    }
 
-                # 2. Khởi tạo đối tượng Word (Đảm bảo Word đã đóng ở bước trên)
-                $word = New-Object -ComObject Word.Application
-                $word.Visible = $false
-                
-                # Ép đơn vị cm và Tắt Scale A4 ngay trên Application Options
-                $word.Options.MeasurementUnit = 1 
-                $word.Options.NoScalingPaperRes = $true
+    # 2. ÉP TẮT "SCALE CONTENT FOR A4" QUA REGISTRY (ĐỂ TRÁNH LỖI PROPERTY)
+    $OfficeVers = @("14.0", "15.0", "16.0")
+    foreach ($Ver in $OfficeVers) {
+        $RegPath = "HKCU:\Software\Microsoft\Office\$Ver\Word\Options"
+        if (Test-Path $RegPath) {
+            # Giá trị 1 = Không co giãn (Tương đương việc BỎ TÍCH ô Scale A4)
+            Set-ItemProperty -Path $RegPath -Name "NoScalingPaperRes" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            # Ép đơn vị cm (1 = cm)
+            Set-ItemProperty -Path $RegPath -Name "MeasurementUnit" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+        }
+    }
 
-                # 3. Mở file Normal.dotm để chỉnh sửa
-                $doc = $word.NormalTemplate.OpenAsDocument()
-                
-                # Bật Ruler (Thước kẻ)
-                $word.ActiveWindow.DisplayRulers = $true
-                $word.ActiveWindow.DisplayVerticalRuler = $true
-                
-                # Cấu hình Font và Lề theo Nghị định 30
-                $doc.Styles.Item("Normal").Font.Name = "Times New Roman"
-                $doc.Styles.Item("Normal").Font.Size = 14
-                $doc.PageSetup.PaperSize = 7 # A4
-                $doc.PageSetup.TopMargin = 56.7    # 2cm
-                $doc.PageSetup.BottomMargin = 56.7 # 2cm
-                $doc.PageSetup.LeftMargin = 85.05  # 3cm
-                $doc.PageSetup.RightMargin = 42.55 # 1.5cm
+    # 3. DÙNG COM OBJECT ĐỂ CHỈNH GIAO DIỆN (RULER & LỀ)
+    $word = New-Object -ComObject Word.Application
+    $word.Visible = $false
+    
+    # Thiết lập đơn vị đo cm ngay trên Application
+    try { $word.Options.MeasurementUnit = 1 } catch {}
 
-                # 4. Lưu và đóng
-                $doc.Save()
-                $doc.Close()
-                GhiLog "    [OK] Đã cấu hình Normal.dotm thành công!"
-            } catch {
-                GhiLog "    [!] LỖI: $($_.Exception.Message)" 
-            } finally {
-                if ($word) {
-                    $word.Quit()
-                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-                    Remove-Variable word -ErrorAction SilentlyContinue
-                }
-            }
-            # --- KẾT THÚC ĐOẠN THAY THẾ ---
+    $doc = $word.NormalTemplate.OpenAsDocument()
+    
+    # Bật Ruler (Thước kẻ)
+    $word.ActiveWindow.DisplayRulers = $true
+    $word.ActiveWindow.DisplayVerticalRuler = $true
+    
+    # Cấu hình Font và Lề theo Nghị định 30
+    $doc.Styles.Item("Normal").Font.Name = "Times New Roman"
+    $doc.Styles.Item("Normal").Font.Size = 14
+    $doc.PageSetup.PaperSize = 7 # A4
+    $doc.PageSetup.TopMargin = 56.7    # 2cm
+    $doc.PageSetup.BottomMargin = 56.7 # 2cm
+    $doc.PageSetup.LeftMargin = 85.05  # 3cm
+    $doc.PageSetup.RightMargin = 42.55 # 1.5cm
 
+    # Lưu và đóng
+    $doc.Save()
+    $doc.Close()
+    GhiLog "    [OK] Đã cấu hình Normal.dotm và Word Options."
+} catch {
+    GhiLog "    [!] Lỗi: $($_.Exception.Message)" 
+} finally {
+    if ($word) {
+        $word.Quit()
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
+    }
+}
             # 5. EP THUC THI NGAY (KHONG REBOOT)
             GhiLog " -> Dang lam moi giao dien Windows..."
             try {
@@ -299,6 +303,7 @@ $btnOptRestoreOffice.Add_Click({
         }
     }
 })
+
 
 
 

@@ -156,18 +156,35 @@ $btnOptOffice.Add_Click({
             Set-Reg $Intl "iMeasure" 0 "String" # Chuyển Windows sang đơn vị cm
 
             # 4. CAN THIỆP NORMAL.DOTM (RULER, CM, SCALE A4, NĐ 30)
-            GhiLog " -> Dang can thiep sau vao Word Application..."
+            # --- THAY THẾ ĐOẠN BƯỚC 4 CŨ BẰNG ĐOẠN NÀY ---
+            GhiLog " -> Đang xử lý file mẫu Normal.dotm (Nghị định 30 & Ruler)..."
             try {
+                # 1. Tìm đường dẫn file Normal.dotm thực tế
+                $AppData = [Environment]::GetFolderPath("ApplicationData")
+                $NormalPath = Join-Path $AppData "Microsoft\Templates\Normal.dotm"
+                
+                if (Test-Path $NormalPath) {
+                    GhiLog "    [+] Đã tìm thấy file mẫu tại: Templates"
+                    # Gỡ bỏ thuộc tính Read-only để tránh lỗi quyền ghi
+                    Set-ItemProperty -Path $NormalPath -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
+                }
+
+                # 2. Khởi tạo đối tượng Word (Đảm bảo Word đã đóng ở bước trên)
                 $word = New-Object -ComObject Word.Application
                 $word.Visible = $false
-                # Ep don vi cm va Tat Scale A4 trong Options ung dung
+                
+                # Ép đơn vị cm và Tắt Scale A4 ngay trên Application Options
                 $word.Options.MeasurementUnit = 1 
                 $word.Options.NoScalingPaperRes = $true
 
+                # 3. Mở file Normal.dotm để chỉnh sửa
                 $doc = $word.NormalTemplate.OpenAsDocument()
+                
+                # Bật Ruler (Thước kẻ)
                 $word.ActiveWindow.DisplayRulers = $true
                 $word.ActiveWindow.DisplayVerticalRuler = $true
                 
+                # Cấu hình Font và Lề theo Nghị định 30
                 $doc.Styles.Item("Normal").Font.Name = "Times New Roman"
                 $doc.Styles.Item("Normal").Font.Size = 14
                 $doc.PageSetup.PaperSize = 7 # A4
@@ -175,10 +192,21 @@ $btnOptOffice.Add_Click({
                 $doc.PageSetup.BottomMargin = 56.7 # 2cm
                 $doc.PageSetup.LeftMargin = 85.05  # 3cm
                 $doc.PageSetup.RightMargin = 42.55 # 1.5cm
-                $doc.Save(); $doc.Close()
-                GhiLog " -> OK: Da luu Normal.dotm."
-            } catch { GhiLog " -> [!] Khong can thiep duoc Normal.dotm." }
-            finally { if ($word) { $word.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null } }
+
+                # 4. Lưu và đóng
+                $doc.Save()
+                $doc.Close()
+                GhiLog "    [OK] Đã cấu hình Normal.dotm thành công!"
+            } catch {
+                GhiLog "    [!] LỖI: $($_.Exception.Message)" 
+            } finally {
+                if ($word) {
+                    $word.Quit()
+                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
+                    Remove-Variable word -ErrorAction SilentlyContinue
+                }
+            }
+            # --- KẾT THÚC ĐOẠN THAY THẾ ---
 
             # 5. EP THUC THI NGAY (KHONG REBOOT)
             GhiLog " -> Dang lam moi giao dien Windows..."
@@ -271,6 +299,7 @@ $btnOptRestoreOffice.Add_Click({
         }
     }
 })
+
 
 
 

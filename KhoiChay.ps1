@@ -6,7 +6,7 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # 2. ĐỊA CHỈ GỐC CHUẨN (Bác dùng link RAW rút gọn này cho sạch)
-$LinkGoc = "https://raw.githubusercontent.com/tuantran19912512/scripts/main"
+$LinkGoc = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
 
 $DanhSachFile = @(
     "Main.ps1", "Core.ps1", "Menu.ps1", 
@@ -47,4 +47,5 @@ $FileMain = Join-Path $ThuMucTam "Main.ps1"
 if (Test-Path $FileMain) {
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$FileMain`""
 }
+
 exit

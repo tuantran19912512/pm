@@ -1,31 +1,17 @@
 # ==============================================================================
-# SCRIPT MỒI: BẢO MẬT HASH SHA256 (KHÔNG LỘ PASS TRÊN GITHUB)
+# SCRIPT MỒI: XÁC THỰC NHIỀU NGƯỜI DÙNG QUA GITHUB (HASH SECURITY)
 # ==============================================================================
 
-# 1. MÃ BĂM MẬT KHẨU (Thay dãy dưới đây bằng dãy bác vừa tạo ở Bước 1)
+# 1. ĐƯỜNG DẪN FILE TEXT CHỨA DANH SÁCH MÃ HASH (Bác thay link GitHub của bác vào)
+$UrlUser = "https://raw.githubusercontent.com/tuantran19912512/pm/main/users.txt"
 
+Clear-Host
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "   HE THONG QUAN LY PHAN MEM - PM TOOL    " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host -NoNewline "Vui long nhap mat khau admin: " -ForegroundColor Yellow
+Write-Host -NoNewline "Vui long nhap ma kich hoat de tiep tuc: " -ForegroundColor Yellow
 
-# ==============================================================================
-# SCRIPT MỒI: QUẢN LÝ ĐA NGƯỜI DÙNG (MULTI-USER HASH LIST)
-# ==============================================================================
-
-# 1. DANH SÁCH MÃ BĂM CHO PHÉP (Mỗi dòng là một người dùng)
-$DanhSachHash = @(
-    "95C551F5E06934F3351B512BC7CC299FF41E5CC895590338991E24A9DFA8B9FC", # Pass: Kto@2026
-    "F12552273BB3CD31F3DDE094891BD456EEEA8F86F4A87763C49C592CC22AC169", # Pass: 0357980104
-    "202CB962AC59075B964B07152D234B70"  # Pass: 123 (User C)
-)
-
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "   HE THONG XAC THUC NGUOI DUNG - PM      " -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host -NoNewline "Vui long nhap ma kich hoat cua ban: " -ForegroundColor Yellow
-
-# Nhập mật khẩu ẩn (Giữ nguyên đoạn code nhập ẩn dấu * như cũ)
+# Nhập mật khẩu ẩn dấu *
 $InputPass = ""
 while($true) {
     $Key = [Console]::ReadKey($true)
@@ -41,54 +27,44 @@ while($true) {
     }
 }
 
-# Chuyển pass vừa nhập sang Hash
+# Chuyển pass sang Hash SHA256 để so sánh
 $Bytes = [System.Text.Encoding]::UTF8.GetBytes($InputPass)
 $HashObj = [System.Security.Cryptography.SHA256]::Create().ComputeHash($Bytes)
 $InputHash = [System.BitConverter]::ToString($HashObj).Replace("-", "")
 
-# 2. KIỂM TRA TRONG DANH SÁCH
-if ($DanhSachHash -contains $InputHash) {
-    Write-Host "[+] Xac thuc thanh cong! Chao mung ban." -ForegroundColor Green
-      # 1. Ép bảo mật kết nối TLS 1.2
-      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-      
-      # 2. Tạo thư mục tạm và dọn rác
-      $T = Join-Path $env:TEMP "AutoSoftManager"
-      if (Test-Path $T) { Remove-Item -Path "$T\*" -Force -Recurse -ErrorAction SilentlyContinue }
-      else { New-Item -ItemType Directory -Force -Path $T | Out-Null }
-      
-      Write-Host ">>> Dang tai source..." -ForegroundColor Cyan
-      
-      # 3. TẢI ĐÍCH DANH TỪNG FILE (Đã fix theo đúng link kho PM của bác)
-      # Mình dùng Invoke-WebRequest để đảm bảo tính ổn định cao nhất
-      
-      $G = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
-      
-      Invoke-WebRequest "$G/Core.ps1" -OutFile "$T\Core.ps1" -UseBasicParsing; Write-Host " -> Complete 1" -ForegroundColor Green
-      Invoke-WebRequest "$G/Menu.ps1" -OutFile "$T\Menu.ps1" -UseBasicParsing; Write-Host "  -> Complete 2" -ForegroundColor Green
-      Invoke-WebRequest "$G/Tab_Windows.ps1" -OutFile "$T\Tab_Windows.ps1" -UseBasicParsing; Write-Host "  -> Complete 3" -ForegroundColor Green
-      Invoke-WebRequest "$G/Tab_Office.ps1" -OutFile "$T\Tab_Office.ps1" -UseBasicParsing; Write-Host "  -> Complete 4" -ForegroundColor Green
-      Invoke-WebRequest "$G/Tab_Hardware.ps1" -OutFile "$T\Tab_Hardware.ps1" -UseBasicParsing; Write-Host "  -> Complete 5" -ForegroundColor Green
-      Invoke-WebRequest "$G/Tab_Printer.ps1" -OutFile "$T\Tab_Printer.ps1" -UseBasicParsing; Write-Host "  -> Complete 6" -ForegroundColor Green
-      Invoke-WebRequest "$G/Tab_Optimizer.ps1" -OutFile "$T\Tab_Optimizer.ps1" -UseBasicParsing; Write-Host "  -> Complete 7" -ForegroundColor Green
-      Invoke-WebRequest "$G/Main.ps1" -OutFile "$T\Main.ps1" -UseBasicParsing; Write-Host "  -> Complete 8" -ForegroundColor Green
-} else {
-    Write-Host "[!] Ma kich hoat khong ton tai hoac da het han!" -ForegroundColor Red
-    Start-Sleep -Seconds 3
-    exit
+# Tải danh sách Hash từ file text online
+try {
+    $DanhSachKey = (Invoke-WebRequest -Uri $UrlUser -UseBasicParsing -ErrorAction Stop).Content -split "`n" | ForEach-Object { $_.Trim() }
+} catch {
+    Write-Host "[!] Loi ket noi server xac thuc!" -ForegroundColor Red
+    Start-Sleep -Seconds 3; exit
 }
-# 4. KHỞI CHẠY TOOL
-if (Test-Path "$T\Main.ps1") {
-    Write-Host ">>> DANG MO GIAO DIEN..." -ForegroundColor Green
-    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$T\Main.ps1`""
+
+# Kiểm tra mã
+if ($DanhSachKey -contains $InputHash) {
+    Write-Host "[+] Xac thuc thanh cong! Dang tai du lieu..." -ForegroundColor Green
 } else {
-    Write-Host "!!! LOI: Khong tim thay file Main.ps1 sau khi tai!" -ForegroundColor Red
-    Start-Sleep -Seconds 10
+    Write-Host "[!] Sai ma kich hoat! Truy cap bi tu choi." -ForegroundColor Red
+    Start-Sleep -Seconds 3; exit
+}
+
+# 2. TẢI VÀ CHẠY BỘ CÔNG CỤ CHÍNH
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$T = Join-Path $env:TEMP "AutoSoftManager"
+if (Test-Path $T) { Remove-Item -Path "$T\*" -Force -Recurse -ErrorAction SilentlyContinue }
+else { New-Item -ItemType Directory -Force -Path $T | Out-Null }
+
+$G = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
+$Files = @("Core.ps1", "Menu.ps1", "Tab_Windows.ps1", "Tab_Office.ps1", "Tab_Hardware.ps1", "Tab_Printer.ps1", "Tab_Optimizer.ps1", "Main.ps1")
+
+try {
+    foreach ($f in $Files) {
+        Invoke-WebRequest "$G/$f" -OutFile "$T\$f" -UseBasicParsing
+    }
+    if (Test-Path "$T\Main.ps1") {
+        Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$T\Main.ps1`""
+    }
+} catch {
+    Write-Host "[!] Loi tai du lieu GitHub!" -ForegroundColor Red
 }
 exit
-
-
-
-
-
-

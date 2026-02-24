@@ -46,7 +46,7 @@ $T = Join-Path $env:TEMP "AutoSoftManager"
 if (Test-Path $T) { Remove-Item -Path "$T\*" -Force -Recurse -ErrorAction SilentlyContinue }
 else { New-Item -ItemType Directory -Force -Path $T | Out-Null }
 
-Write-Host ">>> DANG TAI BO CONG CU TU GITHUB..." -ForegroundColor Cyan
+Write-Host ">>> Đang tải nguồn..." -ForegroundColor Cyan
 
 # 3. TẢI ĐÍCH DANH TỪNG FILE (Đã fix theo đúng link kho PM của bác)
 # Mình dùng Invoke-WebRequest để đảm bảo tính ổn định cao nhất
@@ -71,4 +71,5 @@ if (Test-Path "$T\Main.ps1") {
     Start-Sleep -Seconds 10
 }
 exit
+
 

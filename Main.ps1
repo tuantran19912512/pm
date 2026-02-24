@@ -37,7 +37,20 @@ $form.Controls.Add($khungChinh)
 
 # 3. Ép Z-order để khung chính dạt sang phải, không chui xuống dưới Sidebar
 $khungChinh.BringToFront()
-
+# ==============================================================================
+# TỰ ĐỘNG DỌN DẸP RÁC (CACHE) KHI TẮT TOOL
+# ==============================================================================
+$form.Add_FormClosed({
+    # Đường dẫn thư mục tạm lúc KhoiChay.ps1 tải về
+    $ThuMucRanh = Join-Path $env:TEMP "AutoSoftManager"
+    
+    # Lệnh CMD ngầm: Đợi 2 giây -> Xóa sạch thư mục (bỏ qua lỗi nếu có)
+    $LenhXoa = "/c timeout /t 2 /nobreak >nul & rd /s /q `"$ThuMucRanh`""
+    
+    # Chạy CMD ẩn để dọn dẹp sau khi PowerShell đã thoát
+    Start-Process cmd.exe -ArgumentList $LenhXoa -WindowStyle Hidden
+})
 # --- HIỂN THỊ GIAO DIỆN ---
 ChuyenTab $pnlWin $btnMenuWin
+
 [void]$form.ShowDialog()

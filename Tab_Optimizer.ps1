@@ -98,113 +98,127 @@ $btnOptGaming.Add_Click({
 })
 
 # ==============================================================================
-# LOGIC TỐI ƯU OFFICE THÔNG MINH (PHÂN BIỆT BẢN QUYỀN VÀ THUỐC)
+# LOGIC 3: TỐI ƯU HÓA OFFICE SIÊU CẤP (2010 - 2024 & 365)
 # ==============================================================================
 $btnOptOffice.Add_Click({
-    $XacNhan = [System.Windows.Forms.MessageBox]::Show("Hệ thống sẽ tự động nhận diện loại Office để tối ưu:`n- Office Bản quyền: Chỉ tối ưu in ấn, chống treo, giữ tính năng Online.`n- Office Thuốc: Tối ưu toàn diện + Chặn báo bản quyền + Tắt Update.`n`nBạn có muốn bắt đầu?", "Xác nhận tối ưu Office", "YesNo", "Question")
+    $Confirm = [System.Windows.Forms.MessageBox]::Show("BẮT ĐẦU TỐI ƯU TOÀN DIỆN OFFICE:`n`n1. Bật Thước kẻ (Ruler), Căn lề Nghị định 30.`n2. Tắt Scale A4 (Fix lệch lề in), Tắt gạch đỏ.`n3. Chống treo file nặng (Tắt Graphics Accel).`n4. Chuẩn Kế toán VN (dd/MM/yyyy, Dấu phẩy).`n5. Nhận diện Bản quyền/Thuốc để bảo mật.`n6. Tắt Update & Banner 'Get Genuine'.`n`nBạn có chắc chắn?", "Xác nhận tối ưu Office", "YesNo", "Information")
     
-    if ($XacNhan -eq "Yes") {
-        ChayTacVu "Đang tối ưu Office thông minh..." {
+    if ($Confirm -eq "Yes") {
+        ChayTacVu "Đang tối ưu Office..." {
             ChuyenTab $pnlLog $btnMenuLog
-            GhiLog ">>> BẮT ĐẦU QUY TRÌNH PHÂN TÍCH VÀ TỐI ƯU OFFICE..."
+            GhiLog ">>> QUY TRÌNH TỐI ƯU OFFICE ĐANG BẮT ĐẦU..."
 
-            # 1. ĐÓNG CÁC TIẾN TRÌNH ĐANG CHẠY
-            Stop-Process -Name "winword", "excel", "powerpnt", "outlook" -Force -ErrorAction SilentlyContinue
+            # --- BƯỚC 1: DỌN DẸP TRƯỚC KHI LÀM ---
+            GhiLog "-> Đang đóng các ứng dụng Office để ghi đè cấu hình..."
+            Stop-Process -Name "winword", "excel", "powerpnt", "outlook", "onenote", "officeclicktorun" -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
 
-            # 2. KIỂM TRA LOẠI OFFICE (BẢN QUYỀN HAY THUỐC)
-            $IsLicenseXinh = $false
-            $CheckCTR = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration" -Name "ProductReleaseIds" -ErrorAction SilentlyContinue
-            
-            # Nếu là Office 365 hoặc các bản Subscription thì coi như hàng xịn cần giữ Online
-            if ($CheckCTR.ProductReleaseIds -like "*O365*" -or $CheckCTR.ProductReleaseIds -like "*M365*" -or $CheckCTR.ProductReleaseIds -like "*Sub*") {
-                $IsLicenseXinh = $true
-                GhiLog " -> PHÁT HIỆN: Office 365/Bản quyền tài khoản. Chế độ: TỐI ƯU AN TOÀN." -ForegroundColor Cyan
-            } else {
-                GhiLog " -> PHÁT HIỆN: Office Retail/Volume (Hàng cài sẵn). Chế độ: FULL GIÁP." -ForegroundColor Yellow
-            }
-
-            $OfficeVers = @("14.0", "15.0", "16.0")
-            foreach ($Ver in $OfficeVers) {
-                $Root = "HKCU:\Software\Microsoft\Office\$Ver"
-                if (Test-Path $Root) {
-                    GhiLog " -> Đang xử lý cấu hình cho Office v$Ver..."
-
-                    # --- NHÓM 1: TỐI ƯU IN ẤN & CHỐNG TREO (TẤT CẢ ĐỀU DÙNG) ---
-                    # Tắt Scale A4 (Fix lệch lề)
-                    Set-Reg "$Root\Word\Options" "NoScalingPaperRes" 1
-                    Set-Reg "$Root\Excel\Options" "AutomatedScaling" 0
-                    
-                    # Chống treo file nặng (Tắt tăng tốc đồ họa & Live Preview)
-                    Set-Reg "$Root\Common\Graphics" "DisableHardwareAcceleration" 1
-                    Set-Reg "$Root\Common\Graphics" "DisableAnimations" 1
-                    Set-Reg "$Root\Common\General" "EnableLivePreview" 0
-                    
-                    # Tắt gạch chân chính tả & Màn hình Start
-                    Set-Reg "$Root\Word\Options" "AutoSpell" 0
-                    Set-Reg "$Root\Word\Options" "AutoGrammar" 0
-                    Set-Reg "$Root\Common\General" "DisableBootToOfficeStart" 1
-
-                    # Chế độ xem an toàn (Mở file Zalo là gõ được ngay)
-                    $Apps = @("Word", "Excel")
-                    foreach ($App in $Apps) {
-                        $PVPath = "$Root\$App\Security\ProtectedView"
-                        Set-Reg $PVPath "DisableInternetFilesInPV" 1
-                        Set-Reg $PVPath "DisableUnsafeLocationsInPV" 1
-                        Set-Reg $PVPath "DisableAttachmentsInPV" 1
-                    }
-
-                    # --- NHÓM 2: CHẶN BẢN QUYỀN & UPDATE (CHỈ ÁP DỤNG CHO HÀNG THUỐC) ---
-                    if ($IsLicenseXinh -eq $false) {
-                        GhiLog "    [+] Khóa Banner bản quyền và Tắt Update..."
-                        # Chặn banner "Get Genuine" bằng cách ngắt kết nối trải nghiệm người dùng
-                        Set-Reg "$Root\Common\Privacy" "DisconnectedState" 1
-                        # Tắt tự động cập nhật
-                        Set-Reg "$Root\Common\General" "EnableAutomaticUpdates" 0
-                        Set-Reg "$Root\Common\General" "HideIdentifyAutomaticUpdates" 1
-                        # Chặn gửi dữ liệu về MS
-                        Set-Reg "$Root\Common\General" "sendtelemetry" 3
-                    }
-
-                    # --- NHÓM 3: CHUẨN KẾ TOÁN (TẤT CẢ ĐỀU DÙNG) ---
-                    Set-Reg "$Root\Excel\Options" "UseSystemSeparators" 0 "DWord"
-                    Set-Reg "$Root\Excel\Options" "DecimalSeparator" "," "String"
-                    Set-Reg "$Root\Excel\Options" "ThousandsSeparator" "." "String"
-                    Set-Reg "$Root\Excel\Options" "Font" "Times New Roman, 14" "String"
+            # --- BƯỚC 2: PHÂN TÍCH LOẠI OFFICE ---
+            $IsBảnQuyềnXịn = $false
+            $CTR_Path = "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
+            if (Test-Path $CTR_Path) {
+                $PrdID = (Get-ItemProperty $CTR_Path).ProductReleaseIds
+                if ($PrdID -like "*O365*" -or $PrdID -like "*M365*" -or $PrdID -like "*Retail*" -or $PrdID -like "*HomeStudent*") {
+                    $IsBảnQuyềnXịn = $true
+                    GhiLog " -> PHÁT HIỆN: Office Bản quyền xịn ($PrdID). Giữ kết nối mạng." -ForegroundColor Cyan
+                } else {
+                    GhiLog " -> PHÁT HIỆN: Office Volume/KMS ($PrdID). Chế độ bảo vệ Full." -ForegroundColor Yellow
                 }
             }
 
-            # 3. THIẾT LẬP REGION WINDOWS (dd/MM/yyyy)
-            GhiLog " -> Thiết lập chuẩn Region Windows (dd/MM/yyyy)..."
+            # --- BƯỚC 3: "CÀN QUÉT" REGISTRY TỪ 2010 ĐẾN 2024 ---
+            $Versions = @("14.0", "15.0", "16.0") # 16.0 dùng cho cả 2016, 19, 21, 24, 365
+            foreach ($Ver in $Versions) {
+                $Path = "HKCU:\Software\Microsoft\Office\$Ver"
+                if (Test-Path $Path) {
+                    GhiLog "-> Đang cấu hình Office version $Ver..."
+
+                    # 3.1. Tắt Scale A4 (Fix lỗi in bị nhỏ, lệch lề)
+                    Set-Reg "$Path\Word\Options" "NoScalingPaperRes" 1
+                    Set-Reg "$Path\Excel\Options" "AutomatedScaling" 0
+
+                    # 3.2. Chống treo/lag khi mở file nặng
+                    Set-Reg "$Path\Common\Graphics" "DisableHardwareAcceleration" 1
+                    Set-Reg "$Path\Common\Graphics" "DisableAnimations" 1
+                    Set-Reg "$Path\Common\General" "EnableLivePreview" 0
+                    Set-Reg "$Path\Common\Security\FileValidation" "EnableOnForcedVBALoad" 0
+                    Set-Reg "$Path\Word\Options" "UpdateLinksAtOpen" 0
+                    Set-Reg "$Path\Excel\Options" "Options6" 8 "DWord"
+                    Set-Reg "$Path\Excel\Security" "DataConnectionWarnings" 0
+
+                    # 3.3. Tắt gạch chân đỏ (Chính tả) & Màn hình chờ
+                    Set-Reg "$Path\Word\Options" "AutoSpell" 0
+                    Set-Reg "$Path\Word\Options" "AutoGrammar" 0
+                    Set-Reg "$Path\Common\General" "DisableBootToOfficeStart" 1
+
+                    # 3.4. Tự động lưu 3 phút/lần (AutoRecover)
+                    Set-Reg "$Path\Word\Options" "AutoRecoverDelay" 3
+                    Set-Reg "$Path\Excel\Options" "AutoRecoverDelay" 3
+
+                    # 3.5. Mở file Zalo/Mạng là gõ được ngay (Tắt Protected View)
+                    $PV = @("Word", "Excel", "PowerPoint")
+                    foreach ($App in $PV) {
+                        Set-Reg "$Path\$App\Security\ProtectedView" "DisableInternetFilesInPV" 1
+                        Set-Reg "$Path\$App\Security\ProtectedView" "DisableUnsafeLocationsInPV" 1
+                        Set-Reg "$Path\$App\Security\ProtectedView" "DisableAttachmentsInPV" 1
+                    }
+
+                    # 3.6. Chuẩn Kế toán (Dấu chấm, dấu phẩy)
+                    Set-Reg "$Path\Excel\Options" "UseSystemSeparators" 0 "DWord"
+                    Set-Reg "$Path\Excel\Options" "DecimalSeparator" "," "String"
+                    Set-Reg "$Path\Excel\Options" "ThousandsSeparator" "." "String"
+                    Set-Reg "$Path\Excel\Options" "Font" "Times New Roman, 14" "String"
+                    Set-Reg "$Path\Excel\Security" "VBAWarnings" 1 # Mở Macro
+
+                    # 3.7. Xử lý bản quyền (Chỉ dành cho bản Thuốc)
+                    if ($IsBảnQuyềnXịn -eq $false) {
+                        Set-Reg "$Path\Common\Privacy" "DisconnectedState" 1
+                        Set-Reg "$Path\Common\General" "EnableAutomaticUpdates" 0
+                        Set-Reg "$Path\Common\General" "HideIdentifyAutomaticUpdates" 1
+                        Set-Reg "$Path\Common\General" "sendtelemetry" 3
+                    }
+                }
+            }
+
+            # --- BƯỚC 4: THIẾT LẬP REGION WINDOWS (dd/MM/yyyy) ---
+            GhiLog "-> Đang thiết lập chuẩn Ngày/Tháng/Số cho Windows..."
             $Intl = "HKCU:\Control Panel\International"
             Set-Reg $Intl "sShortDate" "dd/MM/yyyy" "String"
+            Set-Reg $Intl "sLongDate" "dd MMMM yyyy" "String"
             Set-Reg $Intl "sDecimal" "," "String"
             Set-Reg $Intl "sThousand" "." "String"
 
-            # 4. CĂN LỀ NGHỊ ĐỊNH 30 CHO WORD (NORMAL.DOTM)
-            GhiLog " -> Đang can thiệp Normal.dotm (Nghị định 30)..."
+            # --- BƯỚC 5: CAN THIỆP WORD (RULER + NGHỊ ĐỊNH 30) ---
+            GhiLog "-> Đang mở Word để cấu hình Ruler và Normal.dotm..."
             try {
                 $word = New-Object -ComObject Word.Application
                 $word.Visible = $false
                 $doc = $word.NormalTemplate.OpenAsDocument()
+                
+                # Bật thanh thước kẻ
+                $word.ActiveWindow.DisplayRulers = $true
+                $word.ActiveWindow.DisplayVerticalRuler = $true
+                
+                # Căn lề NĐ 30: TNR 14, A4, Trái 3, Phải 1.5, Trên 2, Dưới 2
                 $doc.Styles.Item("Normal").Font.Name = "Times New Roman"
                 $doc.Styles.Item("Normal").Font.Size = 14
                 $doc.PageSetup.PaperSize = 7 # A4
-                $doc.PageSetup.TopMargin = 56.7    # 2cm
-                $doc.PageSetup.BottomMargin = 56.7 # 2cm
-                $doc.PageSetup.LeftMargin = 85.05  # 3cm
-                $doc.PageSetup.RightMargin = 42.55 # 1.5cm
+                $doc.PageSetup.TopMargin = 56.7
+                $doc.PageSetup.BottomMargin = 56.7
+                $doc.PageSetup.LeftMargin = 85.05
+                $doc.PageSetup.RightMargin = 42.55
+
                 $doc.Save()
                 $doc.Close()
-                GhiLog "    [OK] Đã lưu lề chuẩn Nghị định 30."
+                GhiLog " -> OK: Đã bật Ruler và lưu lề Nghị định 30."
             } catch {
-                GhiLog "    [!] Không can thiệp được file Normal.dotm (Bỏ qua)."
+                GhiLog " -> [!] Không thể can thiệp Word trực tiếp. Có thể do lỗi Office."
             } finally {
                 if ($word) { $word.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null }
             }
 
-            GhiLog ">>> TẤT CẢ TÁC VỤ HOÀN TẤT!"
-            [System.Windows.Forms.MessageBox]::Show("Đã tối ưu Office xong!`nLoại Office: $(if($IsLicenseXinh){'Bản quyền'}else{'Cài sẵn'})", "Thành công")
+            GhiLog ">>> HOÀN TẤT TẤT CẢ TÁC VỤ OFFICE!"
+            [System.Windows.Forms.MessageBox]::Show("Office đã được tối ưu siêu cấp!", "Thành công")
         }
     }
 })
@@ -284,4 +298,5 @@ $btnOptRestoreOffice.Add_Click({
         }
     }
 })
+
 

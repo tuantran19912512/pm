@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # [ TAB 5 ] TỐI ƯU HỆ THỐNG
 # ==============================================================================
 $pnlOpt = New-Object System.Windows.Forms.Panel; $pnlOpt.Dock = "Fill"; $pnlOpt.Visible = $false
@@ -21,7 +21,11 @@ $btnOptRestoreWin = New-Object System.Windows.Forms.Button; $btnOptRestoreWin.Te
 # 5. NÚT KHÔI PHỤC OFFICE
 $btnOptRestoreOffice = New-Object System.Windows.Forms.Button; $btnOptRestoreOffice.Text = "🔄 KHÔI PHỤC OFFICE (TRẢ VỀ MẶC ĐỊNH WORD/EXCEL)"; $btnOptRestoreOffice.Location = New-Object System.Drawing.Point(385, 280); $btnOptRestoreOffice.Size = New-Object System.Drawing.Size(365, 50); ThietKeNut $btnOptRestoreOffice $MauNen.XanhLa
 
-$pnlOpt.Controls.AddRange(@($lblOpt, $txtOptWarn, $btnOptOneClick, $btnOptGaming, $btnOptOffice, $btnOptRestoreWin, $btnOptRestoreOffice))
+# 6. NÚT TỐI ƯU MÁY YẾU (Thêm mới)
+$btnOptLowRAM = New-Object System.Windows.Forms.Button; $btnOptLowRAM.Text = "💻 TỐI ƯU HÓA MÁY YẾU (RAM <= 4GB, GIẢM 100% DISK)"; $btnOptLowRAM.Location = New-Object System.Drawing.Point(10, 340); $btnOptLowRAM.Size = New-Object System.Drawing.Size(740, 50); ThietKeNut $btnOptLowRAM $MauNen.Do
+
+# Đã thêm $btnOptLowRAM vào danh sách AddRange
+$pnlOpt.Controls.AddRange(@($lblOpt, $txtOptWarn, $btnOptOneClick, $btnOptGaming, $btnOptOffice, $btnOptRestoreWin, $btnOptRestoreOffice, $btnOptLowRAM))
 $khungChinh.Controls.Add($pnlOpt)
 
 # ==============================================================================
@@ -49,7 +53,6 @@ $btnOptOneClick.Add_Click({
             Set-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Remote Assistance" "fAllowToGetHelp" 0
             Set-Reg "HKCU:\Control Panel\Desktop" "AutoEndTasks" 1
 
-            # --- COMBO TỐI ƯU TRẢI NGHIỆM NGƯỜI DÙNG (UX) ĐÃ FIX LỖI ---
             GhiLog "-> Đang bật sẵn NumLock ở màn hình khởi động..."
             Set-Reg "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard" "InitialKeyboardIndicators" "2" "String"
 
@@ -98,9 +101,60 @@ $btnOptGaming.Add_Click({
 })
 
 # ==============================================================================
-# TAB OFFICE: TỐI ƯU HÓA SIÊU CẤP (2010 - 2024 & 365)
+# LOGIC 3: TỐI ƯU HÓA MÁY YẾU (RAM <= 4GB) - Thêm mới
 # ==============================================================================
+$btnOptLowRAM.Add_Click({
+    $Msg = "TỐI ƯU MÁY YẾU (RAM <= 4GB):`n`n" +
+           "1. Tắt hiệu ứng bóng bẩy, trong suốt (Tăng tốc UI).`n" +
+           "2. Tắt toàn bộ ứng dụng chạy ngầm (Background Apps).`n" +
+           "3. Tắt SysMain/Superfetch (Giảm triệt để 100% Disk & RAM).`n" +
+           "4. Tắt Telemetry & Game Bar (Ngăn gửi dữ liệu ngầm).`n`n" +
+           "Màn hình sẽ nháy 1 giây để áp dụng. Bạn đồng ý không?"
 
+    if ([System.Windows.Forms.MessageBox]::Show($Msg, "Xác nhận tối ưu", "YesNo", "Warning") -eq "Yes") {
+        ChayTacVu "Đang tối ưu máy yếu..." {
+            ChuyenTab $pnlLog $btnMenuLog
+            GhiLog ">>> BẮT ĐẦU TỐI ƯU HÓA CHO MÁY RAM <= 4GB..."
+
+            GhiLog " -> Đang tắt hiệu ứng hình ảnh rườm rà..."
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "EnableTransparency" -Value 0 -Force -ErrorAction SilentlyContinue
+            
+            GhiLog " -> Đang chặn ứng dụng chạy ngầm cắn RAM..."
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Force -ErrorAction SilentlyContinue
+            
+            GhiLog " -> Đang tắt Xbox Game Bar & DVR..."
+            Set-ItemProperty -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_Enabled" -Value 0 -Force -ErrorAction SilentlyContinue
+            $GameDVR = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR"
+            if (!(Test-Path $GameDVR)) { New-Item -Path $GameDVR -Force | Out-Null }
+            Set-ItemProperty -Path $GameDVR -Name "AllowGameDVR" -Value 0 -Force -ErrorAction SilentlyContinue
+
+            GhiLog " -> Đang vô hiệu hóa SysMain và Telemetry..."
+            $ServicesToKill = @("SysMain", "DiagTrack", "dmwappushservice")
+            foreach ($srv in $ServicesToKill) {
+                Stop-Service -Name $srv -Force -ErrorAction SilentlyContinue
+                Set-Service -Name $srv -StartupType Disabled -ErrorAction SilentlyContinue
+            }
+
+            GhiLog " -> Đang làm mới giao diện hệ thống..."
+            try {
+                $Sig = '[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);'
+                $UpdateWin = Add-Type -MemberDefinition $Sig -Name "Win32Opt$([Guid]::NewGuid().ToString().Replace('-',''))" -Namespace Win32 -PassThru
+                $res = [UIntPtr]::Zero
+                $UpdateWin::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 0x02, 5000, [ref]$res) | Out-Null
+            } catch {}
+            
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+
+            GhiLog ">>> TỐI ƯU MÁY YẾU HOÀN TẤT!"
+            [System.Windows.Forms.MessageBox]::Show("Đã tối ưu thành công! Trải nghiệm máy sẽ mượt mà hơn đáng kể.", "Thành công")
+        }
+    }
+})
+
+# ==============================================================================
+# LOGIC 4: TỐI ƯU HÓA OFFICE (2010 - 2024 & 365)
+# ==============================================================================
 $btnOptOffice.Add_Click({
     $XacNhan = [System.Windows.Forms.MessageBox]::Show("Hệ thống sẽ thực hiện các tác vụ sau:`n1. Bật Thước kẻ (Ruler), chuyển đơn vị đo sang Centimeters.`n2. Căn lề chuẩn Nghị định 30 (A4, Times New Roman 14).`n3. Tắt Scale A4 (Fix lệch lề in), tắt gạch chân chính tả.`n4. Chống treo file nặng, chuẩn Kế toán (dd/MM/yyyy).`n5. Tự động nhận diện Bản quyền/Thuốc để bảo vệ.`n`nBạn có đồng ý không?", "Xác nhận tối ưu Office", "YesNo", "Question")
     
@@ -109,12 +163,10 @@ $btnOptOffice.Add_Click({
             ChuyenTab $pnlLog $btnMenuLog
             GhiLog ">>> BẮT ĐẦU QUY TRÌNH TỐI ƯU HÓA TOÀN DIỆN..."
 
-            # 1. ĐÓNG SẠCH TIẾN TRÌNH ĐỂ GIẢI PHÓNG FILE
             GhiLog " -> Đang đóng Word, Excel để cấu hình..."
             Stop-Process -Name "winword", "excel", "officeclicktorun" -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
 
-            # 2. KIỂM TRA LOẠI OFFICE (2019, 2021, 2024, 365)
             $IsLicenseXinh = $false
             $CTR_Path = "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
             if (Test-Path $CTR_Path) {
@@ -127,30 +179,25 @@ $btnOptOffice.Add_Click({
                 }
             }
 
-            # 3. CÀN QUÉT REGISTRY (LÀM NỀN TẢNG)
             $OfficeVers = @("14.0", "15.0", "16.0")
             foreach ($Ver in $OfficeVers) {
                 $Path = "HKCU:\Software\Microsoft\Office\$Ver"
                 if (Test-Path $Path) {
                     GhiLog " -> Cấu hình Registry cho bản v$Ver..."
-                    # In ấn & Đơn vị (cm)
                     Set-Reg "$Path\Word\Options" "NoScalingPaperRes" 1
                     Set-Reg "$Path\Word\Options" "MeasurementUnit" 1
                     Set-Reg "$Path\Excel\Options" "AutomatedScaling" 0
                     
-                    # Chống treo & Tắt phần cứng (Hardware Acceleration)
                     Set-Reg "$Path\Common\Graphics" "DisableHardwareAcceleration" 1
                     Set-Reg "$Path\Common\Graphics" "DisableAnimations" 1
                     Set-Reg "$Path\Common\General" "EnableLivePreview" 0
                     Set-Reg "$Path\Word\Options" "AutoSpell" 0
                     Set-Reg "$Path\Common\General" "DisableBootToOfficeStart" 1
 
-                    # Chuẩn Kế toán
                     Set-Reg "$Path\Excel\Options" "UseSystemSeparators" 0 "DWord"
                     Set-Reg "$Path\Excel\Options" "DecimalSeparator" "," "String"
                     Set-Reg "$Path\Excel\Options" "ThousandsSeparator" "." "String"
 
-                    # Xử lý bản quyền (Chỉ cho bản Thuốc)
                     if ($IsLicenseXinh -eq $false) {
                         Set-Reg "$Path\Common\Privacy" "DisconnectedState" 1
                         Set-Reg "$Path\Common\General" "EnableAutomaticUpdates" 0
@@ -159,10 +206,8 @@ $btnOptOffice.Add_Click({
                 }
             }
 
-            # 4. CAN THIỆP SÂU VÀO WORD (ÉP THAM SỐ & NORMAL.DOTM)
             GhiLog " -> Đang ép cấu hình vào Word Application & Normal.dotm..."
             try {
-                # Giải phóng file Normal.dotm nếu bị khóa Read-only
                 $AppData = [Environment]::GetFolderPath("ApplicationData")
                 $NormalPath = Join-Path $AppData "Microsoft\Templates\Normal.dotm"
                 if (Test-Path $NormalPath) {
@@ -172,23 +217,19 @@ $btnOptOffice.Add_Click({
                 $word = New-Object -ComObject Word.Application
                 $word.Visible = $false
                 
-                # Ép đơn vị đo và No Scale trực tiếp vào Options ứng dụng
                 try { $word.Options.MeasurementUnit = 1 } catch {}
                 try { $word.Options.NoScalingPaperRes = $true } catch {}
 
-                # Mở và sửa file mẫu
                 $doc = $word.NormalTemplate.OpenAsDocument()
                 
-                # Bật Ruler
                 $word.ActiveWindow.DisplayRulers = $true
                 $word.ActiveWindow.DisplayVerticalRuler = $true
                 
-                # Căn lề Nghị định 30 (A4, TNR 14)
-                $doc.PageSetup.PaperSize = 7 # wdPaperA4
-                $doc.PageSetup.TopMargin = 56.7    # 2cm
-                $doc.PageSetup.BottomMargin = 56.7 # 2cm
-                $doc.PageSetup.LeftMargin = 85.05  # 3cm
-                $doc.PageSetup.RightMargin = 42.55 # 1.5cm
+                $doc.PageSetup.PaperSize = 7 
+                $doc.PageSetup.TopMargin = 56.7    
+                $doc.PageSetup.BottomMargin = 56.7 
+                $doc.PageSetup.LeftMargin = 85.05  
+                $doc.PageSetup.RightMargin = 42.55 
                 
                 $doc.Styles.Item("Normal").Font.Name = "Times New Roman"
                 $doc.Styles.Item("Normal").Font.Size = 14
@@ -202,15 +243,13 @@ $btnOptOffice.Add_Click({
                 if ($word) { $word.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null }
             }
 
-            # 5. THIẾT LẬP REGION WINDOWS (ÉP CẬP NHẬT NGAY)
             GhiLog " -> Thiết lập chuẩn Region Windows (dd/MM/yyyy, cm)..."
             $Intl = "HKCU:\Control Panel\International"
             Set-Reg $Intl "sShortDate" "dd/MM/yyyy" "String"
-            Set-Reg $Intl "iMeasure" 0 "String" # Metric (cm)
+            Set-Reg $Intl "iMeasure" 0 "String" 
             Set-Reg $Intl "sDecimal" "," "String"
             Set-Reg $Intl "sThousand" "." "String"
 
-            # 6. ÉP HỆ THỐNG ÁP DỤNG (KHÔNG REBOOT)
             GhiLog " -> Đang làm mới giao diện hệ thống..."
             try {
                 $Sig = '[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);'
@@ -219,7 +258,6 @@ $btnOptOffice.Add_Click({
                 $UpdateWin::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 0x02, 5000, [ref]$res) | Out-Null
             } catch {}
 
-            # Restart Explorer để nhảy đồng hồ và icon
             Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
 
             GhiLog ">>> TẤT CẢ TÁC VỤ HOÀN TẤT!"
@@ -227,8 +265,9 @@ $btnOptOffice.Add_Click({
         }
     }
 })
+
 # ==============================================================================
-# LOGIC 4: KHÔI PHỤC MẶC ĐỊNH WINDOWS (CHUỘT, MẠNG, UX)
+# LOGIC 5: KHÔI PHỤC MẶC ĐỊNH WINDOWS (CHUỘT, MẠNG, UX)
 # ==============================================================================
 $btnOptRestoreWin.Add_Click({
     if ([System.Windows.Forms.MessageBox]::Show("Khôi phục cài đặt gốc của Windows (Gia tốc chuột, Băng thông mạng)?", "Xác nhận Khôi phục", "YesNo", "Question") -eq "Yes") {
@@ -243,7 +282,6 @@ $btnOptRestoreWin.Add_Click({
             Set-Reg "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" "NetworkThrottlingIndex" 10
             Set-Reg "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" "SystemResponsiveness" 20
 
-            # Khôi phục Trải nghiệm người dùng về mặc định Windows ĐÃ FIX LỖI
             GhiLog "-> Đang khôi phục File Explorer và các cài đặt trải nghiệm (UX)..."
             Set-Reg "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard" "InitialKeyboardIndicators" "0" "String"
             Set-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "LaunchTo" 2 "DWord"
@@ -257,7 +295,7 @@ $btnOptRestoreWin.Add_Click({
 })
 
 # ==============================================================================
-# LOGIC 5: KHÔI PHỤC MẶC ĐỊNH OFFICE & CHUẨN QUỐC TẾ
+# LOGIC 6: KHÔI PHỤC MẶC ĐỊNH OFFICE & CHUẨN QUỐC TẾ
 # ==============================================================================
 $btnOptRestoreOffice.Add_Click({
     if ([System.Windows.Forms.MessageBox]::Show("Khôi phục cài đặt gốc của Office (Trả về mặc định Word, Excel, Ngày tháng, Số tiền)?", "Xác nhận Khôi phục", "YesNo", "Question") -eq "Yes") {
@@ -284,7 +322,6 @@ $btnOptRestoreOffice.Add_Click({
             Set-Reg "HKCU:\Software\Microsoft\Office\16.0\Word\Options" "AutoSpell" 1
             Set-Reg "HKCU:\Software\Microsoft\Office\16.0\Word\Options" "AutoGrammar" 1
 
-            # Khôi phục Ngày tháng và Số tiền về chuẩn Mỹ
             GhiLog "-> Đang khôi phục định dạng Ngày/Tháng và Số tiền về chuẩn Mỹ..."
             Set-Reg "HKCU:\Control Panel\International" "sShortDate" "M/d/yyyy" "String"
             Set-Reg "HKCU:\Control Panel\International" "sLongDate" "dddd, MMMM d, yyyy" "String"
@@ -295,7 +332,6 @@ $btnOptRestoreOffice.Add_Click({
             Set-Reg "HKCU:\Software\Microsoft\Office\16.0\Excel\Options" "UseSystemSeparators" 1 "DWord"
             Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Office\16.0\Excel\Options" -Name "DecimalSeparator" -ErrorAction SilentlyContinue
             Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Office\16.0\Excel\Options" -Name "ThousandsSeparator" -ErrorAction SilentlyContinue
-
             Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Office\16.0\Excel\Options" -Name "Font" -ErrorAction SilentlyContinue
 
             GhiLog ">>> KHÔI PHỤC OFFICE HOÀN TẤT!"
@@ -303,10 +339,3 @@ $btnOptRestoreOffice.Add_Click({
         }
     }
 })
-
-
-
-
-
-
-

@@ -98,132 +98,132 @@ $btnOptGaming.Add_Click({
 })
 
 # ==============================================================================
-# LOGIC: TOI UU OFFICE THONG MINH (2010 - 2024 & 365) - FULL GIA'P
+# TAB OFFICE: TỐI ƯU HÓA SIÊU CẤP (2010 - 2024 & 365)
 # ==============================================================================
-$btnOptOffice.Add_Click({
-    $Confirm = [System.Windows.Forms.MessageBox]::Show("TOI UU OFFICE TOAN DIEN:`n1. Bat Ruler, Chuyen sang don vi cm.`n2. Can le ND 30, Tat Scale A4.`n3. Chong treo file nang, Tat gach do.`n4. Chuan Ke toan (dd/MM/yyyy).`n5. Tu dong nhan dien Ban quyen/Thuoc.`n`nHe thong se nhay man hinh 1 giay de ap dung thay doi.", "Xac nhan", "YesNo", "Information")
-    
-    if ($Confirm -eq "Yes") {
-        ChayTacVu "Đang tối ưu Office..." {
-            ChuyenTab $pnlLog $btnMenuLog
-            GhiLog ">>> BAT DAU QUY TRINH TOI UU..."
 
+$btnOptOffice.Add_Click({
+    $XacNhan = [System.Windows.Forms.MessageBox]::Show("Hệ thống sẽ thực hiện các tác vụ sau:`n1. Bật Thước kẻ (Ruler), chuyển đơn vị đo sang Centimeters.`n2. Căn lề chuẩn Nghị định 30 (A4, Times New Roman 14).`n3. Tắt Scale A4 (Fix lệch lề in), tắt gạch chân chính tả.`n4. Chống treo file nặng, chuẩn Kế toán (dd/MM/yyyy).`n5. Tự động nhận diện Bản quyền/Thuốc để bảo vệ.`n`nBạn có đồng ý không?", "Xác nhận tối ưu Office", "YesNo", "Question")
+    
+    if ($XacNhan -eq "Yes") {
+        ChayTacVu "Đang tối ưu Office thông minh..." {
+            ChuyenTab $pnlLog $btnMenuLog
+            GhiLog ">>> BẮT ĐẦU QUY TRÌNH TỐI ƯU HÓA TOÀN DIỆN..."
+
+            # 1. ĐÓNG SẠCH TIẾN TRÌNH ĐỂ GIẢI PHÓNG FILE
+            GhiLog " -> Đang đóng Word, Excel để cấu hình..."
             Stop-Process -Name "winword", "excel", "officeclicktorun" -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
 
-            # 1. NHẬN DIỆN BẢN QUYỀN (2019, 2021, 2024, 365)
+            # 2. KIỂM TRA LOẠI OFFICE (2019, 2021, 2024, 365)
             $IsLicenseXinh = $false
             $CTR_Path = "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
             if (Test-Path $CTR_Path) {
                 $PrdID = (Get-ItemProperty $CTR_Path).ProductReleaseIds
                 if ($PrdID -like "*O365*" -or $PrdID -like "*M365*" -or $PrdID -like "*Retail*" -or $PrdID -like "*HomeStudent*") {
                     $IsLicenseXinh = $true
-                    GhiLog " -> Phat hien Office Ban quyen. Che do: AN TOAN."
+                    GhiLog " -> PHÁT HIỆN: Office Bản quyền xịn. Chế độ: TỐI ƯU AN TOÀN."
+                } else {
+                    GhiLog " -> PHÁT HIỆN: Office Volume/KMS. Chế độ: FULL GIÁP."
                 }
             }
 
-            # 2. CÀN QUÉT REGISTRY
+            # 3. CÀN QUÉT REGISTRY (LÀM NỀN TẢNG)
             $OfficeVers = @("14.0", "15.0", "16.0")
             foreach ($Ver in $OfficeVers) {
                 $Path = "HKCU:\Software\Microsoft\Office\$Ver"
                 if (Test-Path $Path) {
-                    GhiLog " -> Cau hinh Registry v$Ver..."
-                    # In an & Don vi do (cm)
+                    GhiLog " -> Cấu hình Registry cho bản v$Ver..."
+                    # In ấn & Đơn vị (cm)
                     Set-Reg "$Path\Word\Options" "NoScalingPaperRes" 1
                     Set-Reg "$Path\Word\Options" "MeasurementUnit" 1
                     Set-Reg "$Path\Excel\Options" "AutomatedScaling" 0
-                    # Chong treo & Toc do
+                    
+                    # Chống treo & Tắt phần cứng (Hardware Acceleration)
                     Set-Reg "$Path\Common\Graphics" "DisableHardwareAcceleration" 1
                     Set-Reg "$Path\Common\Graphics" "DisableAnimations" 1
                     Set-Reg "$Path\Common\General" "EnableLivePreview" 0
                     Set-Reg "$Path\Word\Options" "AutoSpell" 0
                     Set-Reg "$Path\Common\General" "DisableBootToOfficeStart" 1
-                    # Ke toan
+
+                    # Chuẩn Kế toán
                     Set-Reg "$Path\Excel\Options" "UseSystemSeparators" 0 "DWord"
                     Set-Reg "$Path\Excel\Options" "DecimalSeparator" "," "String"
                     Set-Reg "$Path\Excel\Options" "ThousandsSeparator" "." "String"
 
+                    # Xử lý bản quyền (Chỉ cho bản Thuốc)
                     if ($IsLicenseXinh -eq $false) {
                         Set-Reg "$Path\Common\Privacy" "DisconnectedState" 1
                         Set-Reg "$Path\Common\General" "EnableAutomaticUpdates" 0
+                        Set-Reg "$Path\Common\General" "HideIdentifyAutomaticUpdates" 1
                     }
                 }
             }
 
-            # 3. THIẾT LẬP REGION WINDOWS (dd/MM/yyyy + Metric cm)
+            # 4. CAN THIỆP SÂU VÀO WORD (ÉP THAM SỐ & NORMAL.DOTM)
+            GhiLog " -> Đang ép cấu hình vào Word Application & Normal.dotm..."
+            try {
+                # Giải phóng file Normal.dotm nếu bị khóa Read-only
+                $AppData = [Environment]::GetFolderPath("ApplicationData")
+                $NormalPath = Join-Path $AppData "Microsoft\Templates\Normal.dotm"
+                if (Test-Path $NormalPath) {
+                    Set-ItemProperty -Path $NormalPath -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
+                }
+
+                $word = New-Object -ComObject Word.Application
+                $word.Visible = $false
+                
+                # Ép đơn vị đo và No Scale trực tiếp vào Options ứng dụng
+                try { $word.Options.MeasurementUnit = 1 } catch {}
+                try { $word.Options.NoScalingPaperRes = $true } catch {}
+
+                # Mở và sửa file mẫu
+                $doc = $word.NormalTemplate.OpenAsDocument()
+                
+                # Bật Ruler
+                $word.ActiveWindow.DisplayRulers = $true
+                $word.ActiveWindow.DisplayVerticalRuler = $true
+                
+                # Căn lề Nghị định 30 (A4, TNR 14)
+                $doc.PageSetup.PaperSize = 7 # wdPaperA4
+                $doc.PageSetup.TopMargin = 56.7    # 2cm
+                $doc.PageSetup.BottomMargin = 56.7 # 2cm
+                $doc.PageSetup.LeftMargin = 85.05  # 3cm
+                $doc.PageSetup.RightMargin = 42.55 # 1.5cm
+                
+                $doc.Styles.Item("Normal").Font.Name = "Times New Roman"
+                $doc.Styles.Item("Normal").Font.Size = 14
+
+                $doc.Save()
+                $doc.Close()
+                GhiLog "    [OK] Đã cấu hình Normal.dotm thành công."
+            } catch {
+                GhiLog "    [!] Lỗi can thiệp Word: $($_.Exception.Message)"
+            } finally {
+                if ($word) { $word.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null }
+            }
+
+            # 5. THIẾT LẬP REGION WINDOWS (ÉP CẬP NHẬT NGAY)
+            GhiLog " -> Thiết lập chuẩn Region Windows (dd/MM/yyyy, cm)..."
             $Intl = "HKCU:\Control Panel\International"
             Set-Reg $Intl "sShortDate" "dd/MM/yyyy" "String"
-            Set-Reg $Intl "iMeasure" 0 "String" # Chuyển Windows sang đơn vị cm
+            Set-Reg $Intl "iMeasure" 0 "String" # Metric (cm)
+            Set-Reg $Intl "sDecimal" "," "String"
+            Set-Reg $Intl "sThousand" "." "String"
 
-            # 4. CAN THIỆP NORMAL.DOTM (RULER, CM, SCALE A4, NĐ 30)
-            # --- BẢN SỬA LỖI: CAN THIỆP NORMAL.DOTM VÀ TẮT SCALE A4 QUA REGISTRY ---
-GhiLog " -> Đang xử lý cấu hình Word (NĐ 30, Ruler, cm, Scale A4)..."
-try {
-    # 1. TÌM VÀ GIẢI PHÓNG QUYỀN GHI FILE NORMAL.DOTM
-    $AppData = [Environment]::GetFolderPath("ApplicationData")
-    $NormalPath = Join-Path $AppData "Microsoft\Templates\Normal.dotm"
-    if (Test-Path $NormalPath) {
-        Set-ItemProperty -Path $NormalPath -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
-    }
-
-    # 2. ÉP TẮT "SCALE CONTENT FOR A4" QUA REGISTRY (ĐỂ TRÁNH LỖI PROPERTY)
-    $OfficeVers = @("14.0", "15.0", "16.0")
-    foreach ($Ver in $OfficeVers) {
-        $RegPath = "HKCU:\Software\Microsoft\Office\$Ver\Word\Options"
-        if (Test-Path $RegPath) {
-            # Giá trị 1 = Không co giãn (Tương đương việc BỎ TÍCH ô Scale A4)
-            Set-ItemProperty -Path $RegPath -Name "NoScalingPaperRes" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
-            # Ép đơn vị cm (1 = cm)
-            Set-ItemProperty -Path $RegPath -Name "MeasurementUnit" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    # 3. DÙNG COM OBJECT ĐỂ CHỈNH GIAO DIỆN (RULER & LỀ)
-    $word = New-Object -ComObject Word.Application
-    $word.Visible = $false
-    
-    # Thiết lập đơn vị đo cm ngay trên Application
-    try { $word.Options.MeasurementUnit = 1 } catch {}
-
-    $doc = $word.NormalTemplate.OpenAsDocument()
-    
-    # Bật Ruler (Thước kẻ)
-    $word.ActiveWindow.DisplayRulers = $true
-    $word.ActiveWindow.DisplayVerticalRuler = $true
-    
-    # Cấu hình Font và Lề theo Nghị định 30
-    $doc.Styles.Item("Normal").Font.Name = "Times New Roman"
-    $doc.Styles.Item("Normal").Font.Size = 14
-    $doc.PageSetup.PaperSize = 7 # A4
-    $doc.PageSetup.TopMargin = 56.7    # 2cm
-    $doc.PageSetup.BottomMargin = 56.7 # 2cm
-    $doc.PageSetup.LeftMargin = 85.05  # 3cm
-    $doc.PageSetup.RightMargin = 42.55 # 1.5cm
-
-    # Lưu và đóng
-    $doc.Save()
-    $doc.Close()
-    GhiLog "    [OK] Đã cấu hình Normal.dotm và Word Options."
-} catch {
-    GhiLog "    [!] Lỗi: $($_.Exception.Message)" 
-} finally {
-    if ($word) {
-        $word.Quit()
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-    }
-}
-            # 5. EP THUC THI NGAY (KHONG REBOOT)
-            GhiLog " -> Dang lam moi giao dien Windows..."
+            # 6. ÉP HỆ THỐNG ÁP DỤNG (KHÔNG REBOOT)
+            GhiLog " -> Đang làm mới giao diện hệ thống..."
             try {
                 $Sig = '[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);'
                 $UpdateWin = Add-Type -MemberDefinition $Sig -Name "Win32Update$([Guid]::NewGuid().ToString().Replace('-',''))" -Namespace Win32 -PassThru
                 $res = [UIntPtr]::Zero
                 $UpdateWin::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 0x02, 5000, [ref]$res) | Out-Null
             } catch {}
+
+            # Restart Explorer để nhảy đồng hồ và icon
             Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
 
-            GhiLog ">>> TOI UU OFFICE HOAN TAT!"
-            [System.Windows.Forms.MessageBox]::Show("Da toi uu Office sieu cap thanh cong!", "Thanh cong")
+            GhiLog ">>> TẤT CẢ TÁC VỤ HOÀN TẤT!"
+            [System.Windows.Forms.MessageBox]::Show("Đã tối ưu Office và chuẩn hóa văn bản thành công!", "Thành công")
         }
     }
 })
@@ -303,6 +303,7 @@ $btnOptRestoreOffice.Add_Click({
         }
     }
 })
+
 
 
 

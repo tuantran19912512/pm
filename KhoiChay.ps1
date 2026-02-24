@@ -1,11 +1,11 @@
 # ==============================================================================
-# SCRIPT MỒI: BẢN CHUẨN XÁC ĐỊA CHỈ GITHUB (FIX LỖI TẢI FILE)
+# SCRIPT MỒI: BẢN FIX CỨNG ĐƯỜNG DẪN KHO [PM]
 # ==============================================================================
 
-# 1. Ép dùng TLS 1.2 để thông suốt kết nối với GitHub
+# 1. Ép dùng chuẩn bảo mật TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# 2. ĐỊA CHỈ GỐC CHUẨN (Bác dùng link RAW rút gọn này cho sạch)
+# 2. ĐỊA CHỈ GỐC - Bác dùng chính xác định dạng này (Đã bỏ /refs/heads/)
 $LinkGoc = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
 
 $DanhSachFile = @(
@@ -14,7 +14,7 @@ $DanhSachFile = @(
     "Tab_Hardware.ps1", "Tab_Printer.ps1", "Tab_Optimizer.ps1"
 )
 
-# 3. Dọn dẹp và tạo thư mục tạm
+# 3. Tạo/Dọn dẹp thư mục tạm
 $ThuMucTam = Join-Path $env:TEMP "AutoSoftManager"
 if (Test-Path $ThuMucTam) { 
     Remove-Item -Path "$ThuMucTam\*" -Force -Recurse -ErrorAction SilentlyContinue 
@@ -22,30 +22,32 @@ if (Test-Path $ThuMucTam) {
     New-Item -ItemType Directory -Force -Path $ThuMucTam | Out-Null 
 }
 
-Write-Host ">>> ĐANG KÉO DỮ LIỆU TỪ GITHUB..." -ForegroundColor Cyan
+Write-Host ">>> ĐANG TẢI DỮ LIỆU TỪ GITHUB (KHO PM)..." -ForegroundColor Cyan
 
-# 4. Tải file (Sử dụng lệnh Invoke-RestMethod để nhẹ máy)
+# 4. Tải file với cơ chế ép làm mới (Bypass Cache)
 $MaRandom = Get-Random
 foreach ($File in $DanhSachFile) {
-    # Link này sẽ tự ráp thành: .../scripts/main/Main.ps1?v=12345
+    # Link ráp chuẩn: https://raw.githubusercontent.com/tuantran19912512/pm/main/Main.ps1?v=123
     $LinkTai = "$LinkGoc/$File?v=$MaRandom"
     $DuongDanLuu = Join-Path $ThuMucTam $File
     
     try {
-        $NoiDung = Invoke-RestMethod -Uri $LinkTai -UseBasicParsing
-        [System.IO.File]::WriteAllText($DuongDanLuu, $NoiDung, [System.Text.Encoding]::UTF8)
+        # Sử dụng Invoke-WebRequest để kiểm soát lỗi chặt chẽ hơn
+        Invoke-WebRequest -Uri $LinkTai -OutFile $DuongDanLuu -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
         Write-Host "-> Đã tải xong: $File" -ForegroundColor Green
     } catch {
-        Write-Host "[!] THẤT BẠI: $File. Kiểm tra lại tên file trên GitHub!" -ForegroundColor Red
-        Start-Sleep -Seconds 5
+        Write-Host "[!] KHÔNG TẢI ĐƯỢC: $File" -ForegroundColor Red
+        Write-Host "-> Kiểm tra link này trên trình duyệt: $LinkTai" -ForegroundColor Gray
+        Write-Host "-> Chi tiết lỗi: $($_.Exception.Message)" -ForegroundColor DarkGray
+        Start-Sleep -Seconds 10
         exit
     }
 }
 
-# 5. Khởi chạy Tool ngầm
+# 5. Khởi chạy
 $FileMain = Join-Path $ThuMucTam "Main.ps1"
 if (Test-Path $FileMain) {
+    Write-Host ">>> TẤT CẢ FILE ĐÃ SẴN SÀNG. ĐANG KHỞI CHẠY..." -ForegroundColor Green
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$FileMain`""
 }
-
 exit

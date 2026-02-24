@@ -2,33 +2,33 @@
 # SCRIPT MỒI: BẢN THỦ CÔNG (CHỐNG LỖI RÁP BIẾN 100%)
 # ==============================================================================
 
-# 1. Ép bảo mật TLS 1.2
+# 1. Ép bảo mật TLS 1.2 để không bị GitHub chặn
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# 2. Cấu hình đường dẫn
+# 2. Cấu hình đường dẫn gốc (Bác kiểm tra kỹ chữ "pm" và "main")
 $Goc = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
 $Tam = Join-Path $env:TEMP "AutoSoftManager"
 
-# 3. Tạo thư mục tạm
+# 3. Tạo thư mục tạm và dọn rác cũ
 if (Test-Path $Tam) { Remove-Item -Path "$Tam\*" -Force -Recurse -ErrorAction SilentlyContinue }
 else { New-Item -ItemType Directory -Force -Path $Tam | Out-Null }
 
-Write-Host ">>> DANG TAI DU LIEU TU GITHUB..." -ForegroundColor Cyan
+Write-Host ">>> ĐANG TẢI DỮ LIỆU TỪ GITHUB..." -ForegroundColor Cyan
 
-# 4. HÀM TẢI FILE SIÊU CẤP (Viết riêng để bắt lỗi từng file)
+# 4. HÀM TẢI FILE ĐÍCH DANH (Cực kỳ ổn định)
 function TaiFile($TenFile) {
-    $L = "$Goc/$TenFile?v=$(Get-Random)"
-    $D = Join-Path $Tam $TenFile
+    $Url = "$Goc/$TenFile?v=$(Get-Random)"
+    $Path = Join-Path $Tam $TenFile
     try {
-        Invoke-WebRequest -Uri $L -OutFile $D -UseBasicParsing -ErrorAction Stop
+        Invoke-WebRequest -Uri $Url -OutFile $Path -UseBasicParsing -ErrorAction Stop
         Write-Host " -> OK: $TenFile" -ForegroundColor Green
     } catch {
-        Write-Host " [!] LOI: Khong tai duoc $TenFile" -ForegroundColor Red
-        Write-Host "     Link loi: $L" -ForegroundColor Gray
+        Write-Host " [!] LỖI: Không thấy $TenFile" -ForegroundColor Red
+        Write-Host "     Link lỗi: $Url" -ForegroundColor Gray
     }
 }
 
-# 5. LIỆT KÊ ĐÍCH DANH TỪNG FILE (Không dùng vòng lặp biến để tránh lỗi 400)
+# 5. TẢI TỪNG FILE MỘT (Không dùng vòng lặp để tránh lỗi mất biến)
 TaiFile "Core.ps1"
 TaiFile "Menu.ps1"
 TaiFile "Tab_Windows.ps1"
@@ -38,12 +38,12 @@ TaiFile "Tab_Printer.ps1"
 TaiFile "Tab_Optimizer.ps1"
 TaiFile "Main.ps1"
 
-# 6. Kiểm tra file cuối và chạy
+# 6. Kiểm tra và Khởi chạy
 if (Test-Path "$Tam\Main.ps1") {
-    Write-Host ">>> KHOI CHAY..." -ForegroundColor Green
+    Write-Host ">>> TẤT CẢ ĐÃ SẴN SÀNG! ĐANG KHỞI CHẠY..." -ForegroundColor Green
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Tam\Main.ps1`""
 } else {
-    Write-Host "!!! THAT BAI: Thieu file Main.ps1. Hay kiem tra lai ten kho GitHub!" -ForegroundColor Red
+    Write-Host "!!! THẤT BẠI: File Main.ps1 không tồn tại trên GitHub!" -ForegroundColor Red
     Start-Sleep -Seconds 10
 }
 exit

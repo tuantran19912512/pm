@@ -1,49 +1,45 @@
 # ==============================================================================
-# SCRIPT MỒI: BẢN THỦ CÔNG (CHỐNG LỖI RÁP BIẾN 100%)
+# SCRIPT MỒI: BẢN CƯỠNG ÉP (CHỐNG LỖI BIẾN 100%)
 # ==============================================================================
 
-# 1. Ép bảo mật TLS 1.2 để không bị GitHub chặn
+# 1. Ép bảo mật kết nối
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# 2. Cấu hình đường dẫn gốc (Bác kiểm tra kỹ chữ "pm" và "main")
-$Goc = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
-$Tam = Join-Path $env:TEMP "AutoSoftManager"
+# 2. Tạo thư mục tạm
+$T = Join-Path $env:TEMP "AutoSoftManager"
+if (Test-Path $T) { Remove-Item -Path "$T\*" -Force -Recurse -ErrorAction SilentlyContinue }
+else { New-Item -ItemType Directory -Force -Path $T | Out-Null }
 
-# 3. Tạo thư mục tạm và dọn rác cũ
-if (Test-Path $Tam) { Remove-Item -Path "$Tam\*" -Force -Recurse -ErrorAction SilentlyContinue }
-else { New-Item -ItemType Directory -Force -Path $Tam | Out-Null }
+Write-Host ">>> DANG TAI DU LIEU..." -ForegroundColor Cyan
 
-Write-Host ">>> ĐANG TẢI DỮ LIỆU TỪ GITHUB..." -ForegroundColor Cyan
+# 3. TẢI ĐÍCH DANH TỪNG FILE (Thay vì dùng biến $File dễ bị lỗi)
+# Bác chú ý: Phải viết đúng tên file trên GitHub (Hoa/Thường quan trọng lắm)
 
-# 4. HÀM TẢI FILE ĐÍCH DANH (Cực kỳ ổn định)
-function TaiFile($TenFile) {
-    $Url = "$Goc/$TenFile?v=$(Get-Random)"
-    $Path = Join-Path $Tam $TenFile
-    try {
-        Invoke-WebRequest -Uri $Url -OutFile $Path -UseBasicParsing -ErrorAction Stop
-        Write-Host " -> OK: $TenFile" -ForegroundColor Green
-    } catch {
-        Write-Host " [!] LỖI: Không thấy $TenFile" -ForegroundColor Red
-        Write-Host "     Link lỗi: $Url" -ForegroundColor Gray
-    }
-}
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Core.ps1" -OutFile "$T\Core.ps1" -UseBasicParsing
+Write-Host " -> OK: Core.ps1" -ForegroundColor Green
 
-# 5. TẢI TỪNG FILE MỘT (Không dùng vòng lặp để tránh lỗi mất biến)
-TaiFile "Core.ps1"
-TaiFile "Menu.ps1"
-TaiFile "Tab_Windows.ps1"
-TaiFile "Tab_Office.ps1"
-TaiFile "Tab_Hardware.ps1"
-TaiFile "Tab_Printer.ps1"
-TaiFile "Tab_Optimizer.ps1"
-TaiFile "Main.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Menu.ps1" -OutFile "$T\Menu.ps1" -UseBasicParsing
+Write-Host " -> OK: Menu.ps1" -ForegroundColor Green
 
-# 6. Kiểm tra và Khởi chạy
-if (Test-Path "$Tam\Main.ps1") {
-    Write-Host ">>> TẤT CẢ ĐÃ SẴN SÀNG! ĐANG KHỞI CHẠY..." -ForegroundColor Green
-    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Tam\Main.ps1`""
-} else {
-    Write-Host "!!! THẤT BẠI: File Main.ps1 không tồn tại trên GitHub!" -ForegroundColor Red
-    Start-Sleep -Seconds 10
-}
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Tab_Windows.ps1" -OutFile "$T\Tab_Windows.ps1" -UseBasicParsing
+Write-Host " -> OK: Tab_Windows.ps1" -ForegroundColor Green
+
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Tab_Office.ps1" -OutFile "$T\Tab_Office.ps1" -UseBasicParsing
+Write-Host " -> OK: Tab_Office.ps1" -ForegroundColor Green
+
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Tab_Hardware.ps1" -OutFile "$T\Tab_Hardware.ps1" -UseBasicParsing
+Write-Host " -> OK: Tab_Hardware.ps1" -ForegroundColor Green
+
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Tab_Printer.ps1" -OutFile "$T\Tab_Printer.ps1" -UseBasicParsing
+Write-Host " -> OK: Tab_Printer.ps1" -ForegroundColor Green
+
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Tab_Optimizer.ps1" -OutFile "$T\Tab_Optimizer.ps1" -UseBasicParsing
+Write-Host " -> OK: Tab_Optimizer.ps1" -ForegroundColor Green
+
+Invoke-WebRequest "https://raw.githubusercontent.com/tuantran19912512/pm/main/Main.ps1" -OutFile "$T\Main.ps1" -UseBasicParsing
+Write-Host " -> OK: Main.ps1" -ForegroundColor Green
+
+# 4. KHỞI CHẠY
+Write-Host ">>> DANG MO GIAO DIEN..." -ForegroundColor Green
+Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$T\Main.ps1`""
 exit

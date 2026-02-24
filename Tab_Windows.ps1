@@ -55,12 +55,24 @@ function Global:NapKeyWin($k) {
 }
 
 $btnShowKeys.Add_Click({
-    ChayTacVu "Đang đọc Key" {
+    ChayTacVu "Dang doc Key" {
+        # Chuyển sang Tab Log để hiển thị
+        ChuyenTab $pnlLog $btnMenuLog
+        GhiLog ">>> DANG KIEM TRA THONG TIN BAN QUYEN..."
+
+        # Đọc Key Installed
         $reg = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name DigitalProductId -ErrorAction SilentlyContinue
         if($reg){$raw=$reg.DigitalProductId;$isWin8=($raw[66]-band 1)-ne 0;$i=24;$c="BCDFGHJKMPQRTVWXY2346789";$k="";if($isWin8){$raw[66]=($raw[66]-band 0xF7)};do{$cur=0;$x=14;do{$cur=$cur*256;$cur=$raw[$x+52]+$cur;$raw[$x+52]=[math]::Floor($cur/24);$cur=$cur%24;$x--}while($x-ge 0);$i--;$k=$c[$cur]+$k;$last=$cur}while($i-ge 0);if($isWin8){$keyp1=$k.Substring(1,$last);$keyp2=$k.Substring($last+1,$k.Length-($last+1));$k=$keyp1+"N"+$keyp2};$insKey="";for($j=0;$j-lt $k.Length;$j++){$insKey+=$k[$j];if(($j+1)%5-eq 0 -and ($j+1)-ne $k.Length){$insKey+="-"}}}else{$insKey="N/A"}
+        
+        # Đọc Key BIOS/OEM
         $oem = (Get-CimInstance -Query "SELECT OA3xOriginalProductKey FROM SoftwareLicensingService").OA3xOriginalProductKey
-        if (!$oem) { $oem = "Không tìm thấy" }
-        [System.Windows.Forms.MessageBox]::Show("KEY ĐANG CÀI: $insKey`nKEY BIOS: $oem", "Thông tin")
+        if (!$oem) { $oem = "Khong tim thay Key trong BIOS" }
+        
+        # Ghi thẳng kết quả ra bảng Log để dễ Copy
+        GhiLog "----------------------------------------"
+        GhiLog " [1] KEY DANG CAI (Installed) : $insKey"
+        GhiLog " [2] KEY GOC MAY (OEM/BIOS)   : $oem"
+        GhiLog "----------------------------------------"
     }
 })
 
@@ -93,5 +105,6 @@ $btnNangCap.Add_Click({
 
 $btnUpOn.Add_Click({ ChayTacVu "Bật Update" { ChuyenTab $pnlLog $btnMenuLog; Set-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" "NoAutoUpdate" 0 -Force -ErrorAction SilentlyContinue; Set-Service wuauserv -StartupType Manual; Start-Service wuauserv; GhiLog "-> Đã bật Update." } })
 $btnUpOff.Add_Click({ ChayTacVu "Tắt Update" { ChuyenTab $pnlLog $btnMenuLog; Stop-Service wuauserv -Force; Set-Service wuauserv -StartupType Disabled; Set-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" "NoAutoUpdate" 1 -Force; GhiLog "-> Đã tắt Update vĩnh viễn." } })
+
 
 $btnHWID.Add_Click({ if(XacNhanMatKhau){ ChayTacVu "HWID" { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $Link_HWID = "https://gist.githubusercontent.com/tuantran19912512/81329d670436ea8492b73bd5889ad444/raw/HWID.cmd"; try { $noiDung = (Invoke-RestMethod -Uri "$Link_HWID`?t=$((Get-Date).Ticks)" -ErrorAction Stop).ToString(); ChayScriptOnline $noiDung "HWID_Activation" } catch { [System.Windows.Forms.MessageBox]::Show("Lỗi: $($_.Exception.Message)") } } } })

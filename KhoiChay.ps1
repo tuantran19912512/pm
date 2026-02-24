@@ -1,11 +1,11 @@
 # ==============================================================================
-# SCRIPT MỒI: CHỐNG LỖI 400 INVALID REQUEST
+# SCRIPT MỒI: FIX LỖI RÁP LINK (VERSION CHUẨN 100%)
 # ==============================================================================
 
-# 1. Ép dùng TLS 1.2 - Thiếu dòng này là GitHub báo Invalid ngay
+# 1. Ép bảo mật TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# 2. ĐỊA CHỈ GỐC CHUẨN (Không để dấu / ở cuối cùng)
+# 2. ĐỊA CHỈ GỐC (Bác giữ nguyên link này, KHÔNG thêm dấu / ở cuối)
 $LinkGoc = "https://raw.githubusercontent.com/tuantran19912512/pm/main"
 
 $DanhSachFile = @(
@@ -22,23 +22,23 @@ if (Test-Path $ThuMucTam) {
     New-Item -ItemType Directory -Force -Path $ThuMucTam | Out-Null 
 }
 
-Write-Host ">>> DANG KEO DU LIEU TU KHO [PM]..." -ForegroundColor Cyan
+Write-Host ">>> DANG TAI DU LIEU TU KHO [PM]..." -ForegroundColor Cyan
 
-# 4. Tải file - Dùng vòng lặp sạch
+# 4. Tải file với cơ chế ráp link chính xác
 $MaRandom = Get-Random
 foreach ($File in $DanhSachFile) {
-    # Đảm bảo đường dẫn không bị dư dấu /
-    $LinkTai = "$($LinkGoc.TrimEnd('/'))/$File?v=$MaRandom"
+    # Ráp thủ công để đảm bảo: LinkGoc + / + Tên File + ?v= + Mã Random
+    $LinkTai = "$LinkGoc/$($File)?v=$MaRandom"
     $DuongDanLuu = Join-Path $ThuMucTam $File
     
     try {
-        # Dùng Invoke-WebRequest để tránh lỗi 400 của Invoke-RestMethod
-        Invoke-WebRequest -Uri $LinkTai -OutFile $DuongDanLuu -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
-        Write-Host "-> Thanh cong: $File" -ForegroundColor Green
+        Write-Host "-> Đang tải: $File" -ForegroundColor Yellow
+        Invoke-WebRequest -Uri $LinkTai -OutFile $DuongDanLuu -UseBasicParsing -ErrorAction Stop
+        Write-Host "   => OK!" -ForegroundColor Green
     } catch {
-        Write-Host "[!] LOI 400 HOAC 404: $File" -ForegroundColor Red
-        Write-Host "-> Link thu nghiem: $LinkTai" -ForegroundColor Gray
-        Start-Sleep -Seconds 5
+        Write-Host "[!] LOI: Khong tai duoc $File" -ForegroundColor Red
+        Write-Host "   => Link bi loi: $LinkTai" -ForegroundColor Gray
+        Start-Sleep -Seconds 10
         exit
     }
 }

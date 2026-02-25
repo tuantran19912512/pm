@@ -162,6 +162,19 @@ $btnOptWinFull.Add_Click({
             GhiLog "B10: Dang lam moi giao dien he thong (Restarting Explorer)..."
             Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
+			# --- TỐI ƯU CHUYÊN SÂU CHO GAMING ---
+            GhiLog "B11: Toi uu Gaming (Bat Game Mode, Tat Gia toc chuot de chuan Aim)..."
+            
+            # Bật chế độ Game Mode của Windows (Ưu tiên tài nguyên cho Game)
+            Set-Reg "HKCU:\Software\Microsoft\GameBar" "AllowAutoGameMode" 1 "DWord"
+            
+            # Tắt gia tốc chuột (Mouse Acceleration) - Cực kỳ quan trọng cho game thủ FPS
+            Set-Reg "HKCU:\Control Panel\Mouse" "MouseSpeed" "0" "String"
+            Set-Reg "HKCU:\Control Panel\Mouse" "MouseThreshold1" "0" "String"
+            Set-Reg "HKCU:\Control Panel\Mouse" "MouseThreshold2" "0" "String"
+            
+            # Tắt Xbox Game Bar (Cái này ngốn RAM và làm tụt FPS ngầm rất nặng)
+            Set-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR" "AllowGameDVR" 0 "DWord"
 
             GhiLog ">>> TOI UU WINDOWS HOAN TAT! <<<"
             [System.Windows.Forms.MessageBox]::Show("Toi uu Windows FULL thanh cong! Menu chuot phai da tro ve kieu Classic.", "Thanh cong")

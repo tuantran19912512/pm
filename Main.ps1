@@ -1,7 +1,7 @@
 ﻿# ==============================================================================
 # [ KHỞI CHẠY ] FILE CHÍNH (MAIN ENTRY)
 # ==============================================================================
-
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 # --- KIỂM TRA QUYỀN ADMIN ---
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
@@ -54,3 +54,4 @@ $form.Add_FormClosed({
 ChuyenTab $pnlWin $btnMenuWin
 
 [void]$form.ShowDialog()
+

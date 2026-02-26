@@ -154,12 +154,12 @@ $btnAddCred.Add_Click({
 $btnSysRes.Add_Click({ Start-Process rstrui.exe })
 
 # ==============================================================================
-# LOGIC: QUET IP MANG LAN - BAN OFFLINE DATABASE (MAC_INTERVAL_TREE.TXT)
+# LOGIC: QUET IP MANG LAN - BAN CHINH THUC (TU DONG TAI MAC_INTERVAL_TREE TU GITHUB)
 # ==============================================================================
 $btnQuetIP.Add_Click({
     ChayTacVu "Dang quet mang LAN..." {
         ChuyenTab $pnlLog $btnMenuLog
-        GhiLog ">>> BAT DAU QUET MANG LAN (OFFLINE MAC DATABASE) <<<"
+        GhiLog ">>> BAT DAU QUET MANG LAN (DATA MAC TỪ GITHUB) <<<"
 
         # 1. Lay IP va MAC cua chinh minh
         $NetAdapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
@@ -183,9 +183,9 @@ $btnQuetIP.Add_Click({
         if ([string]::IsNullOrWhiteSpace($UserInput)) { return }
         $SubnetsToScan = $UserInput -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -match "^\d{1,3}\.\d{1,3}\.\d{1,3}$" }
 
-        GhiLog "-> [1/3] Dang ban tin hieu Ping..."
+        GhiLog "-> [1/4] Dang ban tin hieu Ping..."
         
-        # 3. PING ASYNC
+        # 3. PING ASYNC - CO DOEVENTS CHONG TREO
         $Pingers = @()
         foreach ($Subnet in $SubnetsToScan) {
             for ($i = 1; $i -le 254; $i++) {
@@ -205,8 +205,8 @@ $btnQuetIP.Add_Click({
             $p.Ping.Dispose()
         }
 
-        # 4. QUET ARP
-        GhiLog "-> [2/3] Dang trich xuat bang ARP..."
+        # 4. QUET ARP (LAY MAC VA TIM MAY AN)
+        GhiLog "-> [2/4] Dang trich xuat bang ARP..."
         [System.Windows.Forms.Application]::DoEvents()
         $arpOutput = arp -a
         foreach ($line in $arpOutput) {
@@ -218,7 +218,7 @@ $btnQuetIP.Add_Click({
         }
         foreach ($ip in $MyIPs) { if ($ActiveIPs -notcontains $ip) { $ActiveIPs += $ip } }
 
-        GhiLog "-> [3/3] Dang giai ma Hostname va nap tu dien MAC..."
+        GhiLog "-> [3/4] Dang giai ma Hostname..."
 
         # 5. DNS LOOKUP
         $DnsTasks = @()
@@ -241,23 +241,29 @@ $btnQuetIP.Add_Click({
             }
         }
 
-        # 6. NAP TU DIEN MAC_INTERVAL_TREE.TXT (SIE TO KHONG LO)
+        # 6. NAP TU DIEN MAC_INTERVAL_TREE TU GITHUB (DOC TRUC TIEP VAO RAM)
+        GhiLog "-> [4/4] Dang tai Bo du lieu MAC cua ban..."
+        [System.Windows.Forms.Application]::DoEvents()
         $MacVendors = @{}
-        $MacDbPath = Join-Path -Path $PSScriptRoot -ChildPath "mac_interval_tree.txt"
+        $GithubRawUrl = "https://raw.githubusercontent.com/tuantran19912512/pm/refs/heads/main/mac_interval_tree.txt"
         
-        if (Test-Path $MacDbPath) {
-            # Doc file sieu toc bang thu vien .NET
-            foreach ($line in [System.IO.File]::ReadLines($MacDbPath)) {
-                # Bo qua nhung dong chua <GAP> hoac qua ngan
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            $ApiResult = Invoke-WebRequest -Uri $GithubRawUrl -UseBasicParsing -TimeoutSec 10
+            
+            $Lines = $ApiResult.Content -split "`n"
+            foreach ($line in $Lines) {
                 if ($line.Length -gt 13 -and $line -notmatch "<GAP>") {
-                    $oui = $line.Substring(0, 6) # Lay 6 ky tu dau tien
-                    $MacVendors[$oui] = $line.Substring(13).Trim() # Lay ten Hang
+                    $oui = $line.Substring(0, 6)
+                    $MacVendors[$oui] = $line.Substring(13).Trim()
                 }
             }
-        } else {
-            GhiLog "!!! CANH BAO: Khong tim thay file mac_interval_tree.txt tai $PSScriptRoot"
-            GhiLog "!!! Tool se dung tu dien rut gon de thay the."
-            $MacVendors = @{ "000347"="Intel Corp"; "00E04C"="Realtek"; "8C1645"="LCFC(Lenovo)" } # Fallback mini
+            GhiLog "-> Da tai xong Database: $( "{0:N0}" -f $MacVendors.Count ) hang san xuat!"
+        } 
+        catch {
+            GhiLog "!!! Loi: Khong the tai Database. Kiem tra mang."
+            GhiLog "!!! Tool se tu dong dung tu dien Mini de thay the."
+            $MacVendors = @{ "000347"="Intel Corp"; "00E04C"="Realtek"; "8C1645"="LCFC(Lenovo)"; "98FA9B"="LCFC(Lenovo)"; "F0D1A9"="Apple"; "001AA0"="Dell Inc"; "2CFDA1"="ASUSTek"; "086D41"="Lenovo"; "0018FE"="HP Inc"; "B42E99"="Gigabyte Tech" }
         }
 
         # 7. XUAT KET QUA
@@ -280,9 +286,8 @@ $btnQuetIP.Add_Click({
                 }
             }
 
-            # --- LOGIC TRA CUU TU DIEN OFFLINE THEO OUI (6 SO DAU) ---
+            # --- LOGIC TRA CUU THEO OUI (6 SO DAU) ---
             if (-not [string]::IsNullOrEmpty($mac) -and $mac -ne "N/A" -and $mac.Length -ge 8) {
-                # Xoa dau 2 cham (VD: 00:00:0C -> 00000C)
                 $macClean = $mac.Replace(":", "").ToUpper()
                 $pref = $macClean.Substring(0,6)
                 
@@ -294,7 +299,6 @@ $btnQuetIP.Add_Click({
             $hName = $HostNames[$ip]
             if (-not $hName) { $hName = $ip }
             
-            # Cat gon ten Hang de khong bi vo khung Log
             if ($vendor.Length -gt 22) { $vendor = $vendor.Substring(0,19) + "..." }
             
             $GLog = "{0,-16} {1,-19} {2,-25} {3}" -f $ip, $mac, $hName, $vendor

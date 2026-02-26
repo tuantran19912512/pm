@@ -269,7 +269,7 @@ $btnQuetIP.Add_Click({
         # 7. XUAT KET QUA
         GhiLog " "
         GhiLog "=========================================================================================="
-        GhiLog " IP ADDRESS        MAC ADDRESS         HOSTNAME                  HANG SAN XUAT          "
+        GhiLog " IP ADDRESS        MAC ADDRESS         HOSTNAME            HANG SAN XUAT                  "
         GhiLog "=========================================================================================="
         
         $SortedIPs = $ActiveIPs | Sort-Object { [version]$_ }
@@ -307,5 +307,4 @@ $btnQuetIP.Add_Click({
         GhiLog "=========================================================================================="
         [System.Windows.Forms.MessageBox]::Show("Quet mang LAN hoan tat!", "Thanh cong")
     }
-
 })

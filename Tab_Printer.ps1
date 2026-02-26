@@ -159,7 +159,7 @@ $btnSysRes.Add_Click({ Start-Process rstrui.exe })
 $btnQuetIP.Add_Click({
     ChayTacVu "Dang quet mang LAN..." {
         ChuyenTab $pnlLog $btnMenuLog
-        GhiLog ">>> BAT DAU QUET MANG LAN (DATA MAC TỪ GITHUB) <<<"
+        GhiLog ">>> BAT DAU QUET MANG LAN <<<"
 
         # 1. Lay IP va MAC cua chinh minh
         $NetAdapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
@@ -307,4 +307,5 @@ $btnQuetIP.Add_Click({
         GhiLog "=========================================================================================="
         [System.Windows.Forms.MessageBox]::Show("Quet mang LAN hoan tat!", "Thanh cong")
     }
+
 })

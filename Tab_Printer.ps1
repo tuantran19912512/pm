@@ -154,207 +154,153 @@ $btnAddCred.Add_Click({
 $btnSysRes.Add_Click({ Start-Process rstrui.exe })
 
 # ==============================================================================
-# LOGIC: QUET IP MANG LAN (BAN PRO: HO TRO QUET NHIEU LOP MANG CUNG LUC)
+# LOGIC: QUET IP MANG LAN - BAN OFFLINE DATABASE (MAC_INTERVAL_TREE.TXT)
 # ==============================================================================
 $btnQuetIP.Add_Click({
     ChayTacVu "Dang quet mang LAN..." {
         ChuyenTab $pnlLog $btnMenuLog
-        GhiLog ">>> BAT DAU QUET MANG LAN (MULTI-SUBNET) <<<"
+        GhiLog ">>> BAT DAU QUET MANG LAN (OFFLINE MAC DATABASE) <<<"
 
-        # 1. Tu dong nhan dien TAT CA cac lop mang may dang ket noi
-        $MyIPs = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch "Loopback|Pseudo" } | Select-Object -ExpandProperty IPAddress
-        if (-not $MyIPs) { 
-            GhiLog "!!! Loi: Khong tim thay Card mang nao dang ket noi."
-            return 
+        # 1. Lay IP va MAC cua chinh minh
+        $NetAdapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
+        $MyIPAddressInfo = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch "Loopback|Pseudo" }
+        $MyIPs = $MyIPAddressInfo.IPAddress
+        if (-not $MyIPs) { GhiLog "!!! Loi: Khong ket noi mang."; return }
+
+        $MyMACMap = @{}
+        foreach ($ip in $MyIPs) {
+            $alias = ($MyIPAddressInfo | Where-Object { $_.IPAddress -eq $ip }).InterfaceAlias
+            $macRaw = ($NetAdapters | Where-Object { $_.InterfaceAlias -eq $alias }).MacAddress
+            if ($macRaw) { $MyMACMap[$ip] = $macRaw.Replace("-",":") }
         }
         
         $DetectedSubnets = ($MyIPs | ForEach-Object { $_.Substring(0, $_.LastIndexOf('.')) }) | Select-Object -Unique
         $DefaultText = $DetectedSubnets -join ", "
 
-        # 2. Hien thi bang Input giong thanh cong cu cua Advanced IP Scanner
+        # 2. Input Box
         Add-Type -AssemblyName Microsoft.VisualBasic
-        $UserInput = [Microsoft.VisualBasic.Interaction]::InputBox("Phat hien may ban dang o cac lop mang ben duoi.`nBan co the them hoac xoa lop mang (Cach nhau bang dau phay).`n`nVD: 192.168.1, 10.0.0, 172.16.0", "Nhap lop mang can quet", $DefaultText)
-
-        if ([string]::IsNullOrWhiteSpace($UserInput)) { 
-            GhiLog ">>> DA HUY QUET MANG <<<"
-            return 
-        }
-
-        # Tach cac lop mang va kiem tra dinh dang (Chi lay phan dau VD: 192.168.1)
+        $UserInput = [Microsoft.VisualBasic.Interaction]::InputBox("Nhap dải IP can quet:", "Quet mang LAN", $DefaultText)
+        if ([string]::IsNullOrWhiteSpace($UserInput)) { return }
         $SubnetsToScan = $UserInput -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -match "^\d{1,3}\.\d{1,3}\.\d{1,3}$" }
 
-        if ($SubnetsToScan.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Dinh dang lop mang khong hop le! Vui long nhap 3 cum so dau, VD: 192.168.1", "Loi")
-            return
-        }
-
-        GhiLog "-> IP cua ban dang co: $($MyIPs -join ' | ')"
-        GhiLog "-> Dang quet $($SubnetsToScan.Count) dải mang: $($SubnetsToScan -join ', ')"
-        GhiLog "-> [1/4] Dang ban dong loat $($SubnetsToScan.Count * 254) goi tin Ping..."
-
-        # 3. PING NHANH GOM CHUNG TAT CA CAC LOP MANG
+        GhiLog "-> [1/3] Dang ban tin hieu Ping..."
+        
+        # 3. PING ASYNC
         $Pingers = @()
         foreach ($Subnet in $SubnetsToScan) {
             for ($i = 1; $i -le 254; $i++) {
-                $ip = "$Subnet.$i"
-                $ping = New-Object System.Net.NetworkInformation.Ping
+                $ip = "$Subnet.$i"; $ping = New-Object System.Net.NetworkInformation.Ping
                 $Pingers += [PSCustomObject]@{ IP = $ip; Task = $ping.SendPingAsync($ip, 500); Ping = $ping }
+                if ($i % 50 -eq 0) { [System.Windows.Forms.Application]::DoEvents() }
             }
         }
 
-        $ThoiGianChoPing = [DateTime]::Now.AddSeconds(3.5)
-        $PingXong = $false
-        while ((-not $PingXong) -and ([DateTime]::Now -lt $ThoiGianChoPing)) {
-            [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 100
-            $PingXong = $true
-            foreach ($p in $Pingers) { if (-not $p.Task.IsCompleted) { $PingXong = $false; break } }
+        while ($Pingers.Task.IsCompleted -contains $false) {
+            [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50
         }
 
         $ActiveIPs = @()
         foreach ($p in $Pingers) {
-            if ($p.Task.IsCompleted -and $p.Task.Status -eq 'RanToCompletion') {
-                if ($p.Task.Result.Status -eq 'Success') { $ActiveIPs += $p.IP }
-            }
+            if ($p.Task.Status -eq 'RanToCompletion' -and $p.Task.Result.Status -eq 'Success') { $ActiveIPs += $p.IP }
             $p.Ping.Dispose()
         }
 
-        # 4. DOC TROM BANG ARP DE BAT MAY CHAN PING (Ap dung cho tat ca dải)
-        GhiLog "-> [2/4] Dang quet bang ARP tim may an minh..."
+        # 4. QUET ARP
+        GhiLog "-> [2/3] Dang trich xuat bang ARP..."
+        [System.Windows.Forms.Application]::DoEvents()
         $arpOutput = arp -a
         foreach ($line in $arpOutput) {
             foreach ($Subnet in $SubnetsToScan) {
-                if ($line -match "^\s*($Subnet\.\d+)\s+([0-9a-fA-F-]{17})\s+(dynamic|static)") {
-                    $arpIp = $Matches[1]
-                    $arpMac = $Matches[2]
-                    if ($arpMac -notmatch "ff-ff-ff-ff-ff-ff" -and $arpIp -ne "$Subnet.255") {
-                        if ($ActiveIPs -notcontains $arpIp) { $ActiveIPs += $arpIp }
-                    }
+                if ($line -match "^\s*($Subnet\.\d+)\s+([0-9a-fA-F-]{17})") {
+                    $arpIp = $Matches[1]; if ($ActiveIPs -notcontains $arpIp) { $ActiveIPs += $arpIp }
                 }
             }
         }
-        
         foreach ($ip in $MyIPs) { if ($ActiveIPs -notcontains $ip) { $ActiveIPs += $ip } }
 
-        GhiLog "-> Phat hien TONG CONG $($ActiveIPs.Count) thiet bi."
-        GhiLog "-> [3/4] Dang tra cuu Ten may qua DNS Server..."
+        GhiLog "-> [3/3] Dang giai ma Hostname va nap tu dien MAC..."
 
-        # 5. RESOLVE HOSTNAME (DNS)
+        # 5. DNS LOOKUP
         $DnsTasks = @()
         foreach ($ip in $ActiveIPs) {
             $DnsTasks += [PSCustomObject]@{ IP = $ip; Task = [System.Net.Dns]::GetHostEntryAsync($ip) }
+            [System.Windows.Forms.Application]::DoEvents()
         }
 
-        $ThoiGianChoDns = [DateTime]::Now.AddSeconds(4)
-        $DnsXong = $false
-        while ((-not $DnsXong) -and ([DateTime]::Now -lt $ThoiGianChoDns)) {
-            [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 100
-            $DnsXong = $true
-            foreach ($t in $DnsTasks) { if (-not $t.Task.IsCompleted) { $DnsXong = $false; break } }
+        $DnsTimeout = [DateTime]::Now.AddSeconds(4)
+        while (($DnsTasks.Task.IsCompleted -contains $false) -and ([DateTime]::Now -lt $DnsTimeout)) {
+            [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 100
         }
 
         $HostNames = @{}
-        $ThieuTenIPs = @()
         foreach ($t in $DnsTasks) {
-            if ($t.Task.IsCompleted -and $t.Task.Status -eq 'RanToCompletion') {
-                $HostNames[$t.IP] = $t.Task.Result.HostName.Split('.')[0]
-            } else {
+            if ($t.Task.Status -eq 'RanToCompletion' -and $t.Task.Result -ne $null) { 
+                $HostNames[$t.IP] = $t.Task.Result.HostName.Split('.')[0] 
+            } else { 
                 $HostNames[$t.IP] = $t.IP 
-                $ThieuTenIPs += $t.IP
             }
         }
 
-        # 6. QUET NETBIOS NHUNG MAY BI AN TEN
-        if ($ThieuTenIPs.Count -gt 0) {
-            GhiLog "-> [4/4] Dang ep tim Ten may (NetBIOS) cho $($ThieuTenIPs.Count) thiet bi an..."
-            $NbtTasks = @()
-            foreach ($ip in $ThieuTenIPs) {
-                $p = New-Object System.Diagnostics.Process
-                $p.StartInfo.FileName = "nbtstat"
-                $p.StartInfo.Arguments = "-A $ip"
-                $p.StartInfo.UseShellExecute = $false
-                $p.StartInfo.RedirectStandardOutput = $true
-                $p.StartInfo.CreateNoWindow = $true
-                $p.Start() | Out-Null
-                $NbtTasks += [PSCustomObject]@{ IP = $ip; Process = $p }
-            }
-
-            $NbtTimeout = [DateTime]::Now.AddSeconds(3)
-            $NbtDone = $false
-            while ((-not $NbtDone) -and ([DateTime]::Now -lt $NbtTimeout)) {
-                [System.Windows.Forms.Application]::DoEvents()
-                Start-Sleep -Milliseconds 100
-                $NbtDone = $true
-                foreach ($t in $NbtTasks) { if (-not $t.Process.HasExited) { $NbtDone = $false; break } }
-            }
-
-            foreach ($t in $NbtTasks) {
-                if ($t.Process.HasExited) {
-                    $out = $t.Process.StandardOutput.ReadToEnd()
-                    if ($out -match "(?m)^\s*(\S+)\s*<00>\s*UNIQUE") {
-                        $TenNetBios = $Matches[1].Trim()
-                        if ($TenNetBios -notmatch "ISATAP") { $HostNames[$t.IP] = $TenNetBios }
-                    }
-                } else {
-                    $t.Process.Kill()
-                }
-                $t.Process.Dispose()
-            }
-        }
+        # 6. NAP TU DIEN MAC_INTERVAL_TREE.TXT (SIE TO KHONG LO)
+        $MacVendors = @{}
+        $MacDbPath = Join-Path -Path $PSScriptRoot -ChildPath "mac_interval_tree.txt"
         
-        # 7. TU DIEN MAC ADDRESS (OUI) NHAN DIEN HANG SAN XUAT
-        $MacVendors = @{
-            "00:1D:AA" = "DrayTek Corp"; "2C:FD:A1" = "ASUSTek"; "B0:6E:BF" = "ASUSTek"
-            "00:15:65" = "YEALINK"; "80:5E:C0" = "YEALINK"; "48:BA:4E" = "HP Printer"
-            "00:1E:8F" = "Canon Printer"; "3C:2A:F4" = "Brother Printer"; "E0:50:8B" = "Hikvision Camera"
-            "18:D6:C7" = "TP-Link"; "F4:F2:6D" = "TP-Link"; "00:1A:A0" = "Dell"
-            "00:23:DF" = "Apple (iPhone/Mac)"; "00:26:73" = "Samsung"; "10:AE:60" = "Cisco"
+        if (Test-Path $MacDbPath) {
+            # Doc file sieu toc bang thu vien .NET
+            foreach ($line in [System.IO.File]::ReadLines($MacDbPath)) {
+                # Bo qua nhung dong chua <GAP> hoac qua ngan
+                if ($line.Length -gt 13 -and $line -notmatch "<GAP>") {
+                    $oui = $line.Substring(0, 6) # Lay 6 ky tu dau tien
+                    $MacVendors[$oui] = $line.Substring(13).Trim() # Lay ten Hang
+                }
+            }
+        } else {
+            GhiLog "!!! CANH BAO: Khong tim thay file mac_interval_tree.txt tai $PSScriptRoot"
+            GhiLog "!!! Tool se dung tu dien rut gon de thay the."
+            $MacVendors = @{ "000347"="Intel Corp"; "00E04C"="Realtek"; "8C1645"="LCFC(Lenovo)" } # Fallback mini
         }
 
-        # 8. DOC BANG ARP VA IN KET QUA RA BANG (SAP XEP THEO IP)
-        $arpOutput = arp -a
+        # 7. XUAT KET QUA
         GhiLog " "
         GhiLog "=========================================================================================="
-        GhiLog " IP ADDRESS        MAC ADDRESS         HOSTNAME                  HANG SAN XUAT (NOTE)     "
+        GhiLog " IP ADDRESS        MAC ADDRESS         HOSTNAME                  HANG SAN XUAT          "
         GhiLog "=========================================================================================="
         
-        # Sap xep danh sach IP (theo tung lop mang tang dan)
-        $SortedIPs = $ActiveIPs | Sort-Object { [version]($_) }
-
+        $SortedIPs = $ActiveIPs | Sort-Object { [version]$_ }
         foreach ($ip in $SortedIPs) {
-            $mac = "Khong xac dinh   "
-            $vendor = "Unknown / Khac Subnet"
+            [System.Windows.Forms.Application]::DoEvents()
+            $mac = "N/A"; $vendor = "Unknown Vendor"
             
-            $arpLine = $arpOutput | Select-String -Pattern "\s$ip\s"
-            if ($arpLine) {
-                if ($arpLine.Line -match "([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})") {
+            if ($MyIPs -contains $ip) {
+                if ($MyMACMap[$ip]) { $mac = $MyMACMap[$ip] }
+            } else {
+                $line = $arpOutput | Select-String -Pattern "\s$ip\s"
+                if ($line -and $line.Line -match "([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})") {
                     $mac = $Matches[0].ToUpper().Replace("-",":")
-                    $macPrefix = $mac.Substring(0,8)
-                    if ($MacVendors.ContainsKey($macPrefix)) { $vendor = $MacVendors[$macPrefix] }
-                    else { $vendor = "Unknown Vendor" }
+                }
+            }
+
+            # --- LOGIC TRA CUU TU DIEN OFFLINE THEO OUI (6 SO DAU) ---
+            if (-not [string]::IsNullOrEmpty($mac) -and $mac -ne "N/A" -and $mac.Length -ge 8) {
+                # Xoa dau 2 cham (VD: 00:00:0C -> 00000C)
+                $macClean = $mac.Replace(":", "").ToUpper()
+                $pref = $macClean.Substring(0,6)
+                
+                if ($MacVendors.ContainsKey($pref)) { 
+                    $vendor = $MacVendors[$pref] 
                 }
             }
             
-            $GhiChu = "ON"
-            if ($MyIPs -contains $ip) { 
-                $mac = "(May cua ban)    "
-                $vendor = "This PC (Local)" 
-            }
+            $hName = $HostNames[$ip]
+            if (-not $hName) { $hName = $ip }
             
-            $ipPad = $ip.PadRight(16)
-            $macPad = $mac.PadRight(19)
+            # Cat gon ten Hang de khong bi vo khung Log
+            if ($vendor.Length -gt 22) { $vendor = $vendor.Substring(0,19) + "..." }
             
-            $hostStr = $HostNames[$ip]
-            if ($hostStr.Length -gt 23) { $hostStr = $hostStr.Substring(0, 20) + "..." }
-            $hostPad = $hostStr.PadRight(25)
-            
-            $vendorPad = "$vendor"
-            
-            GhiLog " $ipPad $macPad $hostPad $vendorPad"
+            $GLog = "{0,-16} {1,-19} {2,-25} {3}" -f $ip, $mac, $hName, $vendor
+            GhiLog " $GLog"
         }
         GhiLog "=========================================================================================="
-        GhiLog ">>> QUET MANG HOAN TAT! <<<"
-        [System.Windows.Forms.MessageBox]::Show("Da quet xong mang LAN! Tim thay $($ActiveIPs.Count) thiet bi.", "Thanh cong")
+        [System.Windows.Forms.MessageBox]::Show("Quet mang LAN hoan tat!", "Thanh cong")
     }
 })

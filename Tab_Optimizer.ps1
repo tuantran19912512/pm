@@ -1,5 +1,5 @@
 ﻿# ==============================================================================
-# [ TAB 5 ] TOI UU HOA HE THONG (BAN RUT GON - 2 NUT FULL OPTION)
+# [ TAB 5 ] TOI UU HOA HE THONG (BAN RUT GON - 3 NUT FULL OPTION)
 # ==============================================================================
 $pnlOpt = New-Object System.Windows.Forms.Panel; $pnlOpt.Dock = "Fill"; $pnlOpt.Visible = $false
 $lblOpt = New-Object System.Windows.Forms.Label; $lblOpt.Text = "TOI UU HOA HE THONG (FULL OPTION)"; $lblOpt.Font = $PhongChu.TieuDe; $lblOpt.ForeColor = $MauNen.Cam; $lblOpt.Size = New-Object System.Drawing.Size(600, 40); $lblOpt.Location = New-Object System.Drawing.Point(10, 10)
@@ -22,7 +22,20 @@ $btnOptOfficeFull.Size = New-Object System.Drawing.Size(740, 80)
 $btnOptOfficeFull.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
 ThietKeNut $btnOptOfficeFull $MauNen.XanhDuong
 
-$pnlOpt.Controls.AddRange(@($lblOpt, $txtOptWarn, $btnOptWinFull, $btnOptOfficeFull))
+# --- NÚT 3: ĐỒNG BỘ GIỜ VIỆT NAM ---
+$btnDongBoGio = New-Object System.Windows.Forms.Button
+$btnDongBoGio.Text = "3. DONG BO GIO VIET NAM (CHONG LOI CHUNG CHI WEB)"
+$btnDongBoGio.Location = New-Object System.Drawing.Point(10, 310)
+$btnDongBoGio.Size = New-Object System.Drawing.Size(740, 80)
+$btnDongBoGio.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+$btnDongBoGio.BackColor = [System.Drawing.Color]::FromArgb(255, 39, 174, 96) # Màu xanh lá
+$btnDongBoGio.ForeColor = [System.Drawing.Color]::White
+$btnDongBoGio.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnDongBoGio.FlatAppearance.BorderSize = 0
+$btnDongBoGio.Cursor = [System.Windows.Forms.Cursors]::Hand
+
+# Gắn TẤT CẢ các nút vào khung giao diện cùng lúc
+$pnlOpt.Controls.AddRange(@($lblOpt, $txtOptWarn, $btnOptWinFull, $btnOptOfficeFull, $btnDongBoGio))
 $khungChinh.Controls.Add($pnlOpt)
 
 # ==============================================================================
@@ -45,33 +58,19 @@ $btnOptWinFull.Add_Click({
 
             GhiLog "B4: Don dep rac he thong chuyen sau (Bypass Cleanmgr)..."
             
-            # 1. Danh sach cac "o chuc" rac lon nhat cua Windows
             $DanhSachRac = @(
-                "$env:TEMP\*",                                                        # Rac cua User
-                "$env:windir\Temp\*",                                                 # Rac cua He thong
-                "$env:windir\Prefetch\*",                                             # Cache khoi dong (Prefetch)
-                "$env:windir\SoftwareDistribution\Download\*",                        # File rac cua Windows Update
-                "$env:ProgramData\Microsoft\Windows\WER\ReportArchive\*",             # Log bao loi (WER) ngons dung luong
-                "$env:ProgramData\Microsoft\Windows\WER\ReportQueue\*",               # Hang doi bao loi
-                "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*"                     # Cache trinh duyet an
+                "$env:TEMP\*", "$env:windir\Temp\*", "$env:windir\Prefetch\*", 
+                "$env:windir\SoftwareDistribution\Download\*", 
+                "$env:ProgramData\Microsoft\Windows\WER\ReportArchive\*", 
+                "$env:ProgramData\Microsoft\Windows\WER\ReportQueue\*", 
+                "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*"
             )
-            
-            # Xoa toan bo file rac (Bo qua loi neu file dang bi ung dung khac khoa)
-            foreach ($ThuMuc in $DanhSachRac) {
-                Remove-Item -Path $ThuMuc -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            
-            # 2. Xoa sach Thung Rac
+            foreach ($ThuMuc in $DanhSachRac) { Remove-Item -Path $ThuMuc -Recurse -Force -ErrorAction SilentlyContinue }
             Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue
-            
-            # 3. Xoa Cache Icon va Thumbnail (Giup mo thu muc chua nhieu anh/video nhanh hon)
             Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\Windows\Explorer" -Filter "thumbcache_*.db" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
             Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\Windows\Explorer" -Filter "iconcache_*.db" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
-            # --- TÍCH HỢP FULL CHRIS TITUS SCRIPT ---
             GhiLog "B5: Thuc thi FULL loi toi uu Chris Titus (Quyen rieng tu & Hieu suat)..."
-            
-            # 1. Privacy & Telemetry (Quyền riêng tư & Theo dõi)
             Set-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" "EnableActivityFeed" 0 "DWord"
             Set-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" "PublishUserActivities" 0 "DWord"
             Set-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" "UploadUserActivities" 0 "DWord"
@@ -91,63 +90,24 @@ $btnOptWinFull.Add_Click({
             Set-Reg "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" "AllowTelemetry" 0 "DWord"
             Set-Reg "HKCU:\Software\Microsoft\Siuf\Rules" "NumberOfSIUFInPeriod" 0 "DWord"
 
-            # 2. Explorer Auto-Discovery (Mở thư mục nhanh hơn)
             Remove-Item "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags" -Recurse -Force -ErrorAction SilentlyContinue
             Remove-Item "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU" -Recurse -Force -ErrorAction SilentlyContinue
             Set-Reg "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags\AllFolders\Shell" "FolderType" "NotSpecified" "String"
 
-            # 3. Optimize Services (Ép hàng chục Service về Manual/Disabled để giải phóng RAM)
             GhiLog "B6: Toi uu DICH VU (Services) theo chuan Chris Titus..."
-            $ServicesManual = @(
-                "ALG", "AppMgmt", "AppReadiness", "Appinfo", "AxInstSV", "BTAGService", "COMSysApp", 
-                "CertPropSvc", "CscService", "DevQueryBroker", "DeviceAssociationService", "DeviceInstall", 
-                "DisplayEnhancementService", "EFS", "EapHost", "FDResPub", "FrameServer", "FrameServerMonitor", 
-                "GraphicsPerfSvc", "HvHost", "InstallService", "IpxlatCfgSvc", "KtmRm", "LicenseManager", 
-                "LxpSvc", "MSDTC", "MSiSCSI", "McpManagementService", "MicrosoftEdgeElevationService", 
-                "NaturalAuthentication", "NcaSvc", "NcbService", "NcdAutoSetup", "NetSetupSvc", "Netman", 
-                "NlaSvc", "PeerDistSvc", "PerfHost", "PhoneSvc", "PlugPlay", "PolicyAgent", "PrintNotify", 
-                "PushToInstall", "QWAVE", "RasAuto", "RasMan", "RmSvc", "RpcLocator", "SCPolicySvc", 
-                "SCardSvr", "SDRSVC", "SEMgrSvc", "SNMPTRAP", "SSDPSRV", "ScDeviceEnum", "SensorDataService", 
-                "SensorService", "SensrSvc", "SessionEnv", "SharedAccess", "SmsRouter", "SstpSvc", "StiSvc", 
-                "TapiSrv", "TieringEngineService", "TokenBroker", "TroubleshootingSvc", "TrustedInstaller", 
-                "UmRdpService", "VSS", "W32Time", "WEPHOSTSVC", "WFDSConMgrSvc", "WMPNetworkSvc", "WManSvc", 
-                "WPDBusEnum", "WSAIFabricSvc", "WalletService", "WarpJITSvc", "WbioSrvc", "WdiServiceHost", 
-                "WdiSystemHost", "WebClient", "Wecsvc", "WerSvc", "WiaRpc", "WinRM", "WpcMonSvc", "XblAuthManager", 
-                "XblGameSave", "XboxGipSvc", "XboxNetApiSvc", "autotimesvc", "bthserv", "cloudidsvc", "dcsvc", 
-                "defragsvc", "diagsvc", "dot3svc", "edgeupdatem", "fdPHost", "fhsvc", "hidserv", "icssvc", 
-                "lltdsvc", "lmhosts", "netprofm", "perceptionsimulation", "pla", "seclogon", "smphost", 
-                "svsvc", "swprv", "upnphost", "vds", "vmicguestinterface", "vmicheartbeat", "vmickvpexchange", 
-                "vmicrdv", "vmicshutdown", "vmictimesync", "vmicvmsession", "vmicvss", "wbengine", "wcncsvc", 
-                "webthreatdefsvc", "wercplsupport", "wisvc", "wlidsvc", "wlpasvc", "wmiApSrv", "workfolderssvc", 
-                "wuauserv"
-            )
-            $ServicesDisabled = @(
-                "AppVClient", "AssignedAccessManagerSvc", "DialogBlockingService", "NetTcpPortSharing", 
-                "RemoteAccess", "RemoteRegistry", "UevAgentService", "shpamsvc", "ssh-agent", "tzautoupdate"
-            )
+            $ServicesManual = @("ALG", "AppMgmt", "AppReadiness", "Appinfo", "AxInstSV", "BTAGService", "COMSysApp", "CertPropSvc", "CscService", "DevQueryBroker", "DeviceAssociationService", "DeviceInstall", "DisplayEnhancementService", "EFS", "EapHost", "FDResPub", "FrameServer", "FrameServerMonitor", "GraphicsPerfSvc", "HvHost", "InstallService", "IpxlatCfgSvc", "KtmRm", "LicenseManager", "LxpSvc", "MSDTC", "MSiSCSI", "McpManagementService", "MicrosoftEdgeElevationService", "NaturalAuthentication", "NcaSvc", "NcbService", "NcdAutoSetup", "NetSetupSvc", "Netman", "NlaSvc", "PeerDistSvc", "PerfHost", "PhoneSvc", "PlugPlay", "PolicyAgent", "PrintNotify", "PushToInstall", "QWAVE", "RasAuto", "RasMan", "RmSvc", "RpcLocator", "SCPolicySvc", "SCardSvr", "SDRSVC", "SEMgrSvc", "SNMPTRAP", "SSDPSRV", "ScDeviceEnum", "SensorDataService", "SensorService", "SensrSvc", "SessionEnv", "SharedAccess", "SmsRouter", "SstpSvc", "StiSvc", "TapiSrv", "TieringEngineService", "TokenBroker", "TroubleshootingSvc", "TrustedInstaller", "UmRdpService", "VSS", "W32Time", "WEPHOSTSVC", "WFDSConMgrSvc", "WMPNetworkSvc", "WManSvc", "WPDBusEnum", "WSAIFabricSvc", "WalletService", "WarpJITSvc", "WbioSrvc", "WdiServiceHost", "WdiSystemHost", "WebClient", "Wecsvc", "WerSvc", "WiaRpc", "WinRM", "WpcMonSvc", "XblAuthManager", "XblGameSave", "XboxGipSvc", "XboxNetApiSvc", "autotimesvc", "bthserv", "cloudidsvc", "dcsvc", "defragsvc", "diagsvc", "dot3svc", "edgeupdatem", "fdPHost", "fhsvc", "hidserv", "icssvc", "lltdsvc", "lmhosts", "netprofm", "perceptionsimulation", "pla", "seclogon", "smphost", "svsvc", "swprv", "upnphost", "vds", "vmicguestinterface", "vmicheartbeat", "vmickvpexchange", "vmicrdv", "vmicshutdown", "vmictimesync", "vmicvmsession", "vmicvss", "wbengine", "wcncsvc", "webthreatdefsvc", "wercplsupport", "wisvc", "wlidsvc", "wlpasvc", "wmiApSrv", "workfolderssvc", "wuauserv")
+            $ServicesDisabled = @("AppVClient", "AssignedAccessManagerSvc", "DialogBlockingService", "NetTcpPortSharing", "RemoteAccess", "RemoteRegistry", "UevAgentService", "shpamsvc", "ssh-agent", "tzautoupdate")
 
             foreach ($svc in $ServicesManual) { Set-Service -Name $svc -StartupType Manual -ErrorAction SilentlyContinue }
             foreach ($svc in $ServicesDisabled) { 
                 Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
                 Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue 
             }
-            # ------------------------------------------------
 
-            # --- TÍCH HỢP GỠ APP RÁC (DEBLOAT) ---
             GhiLog "B7: Dang go bo cac Ung dung rac (Bloatware) cua Windows..."
-            $Bloatwares = @(
-                "*BingWeather*", "*BingNews*", "*BingSports*", "*BingFinance*",
-                "*ZuneVideo*", "*ZuneMusic*", "*SkypeApp*", "*YourPhone*",
-                "*3DBuilder*", "*MicrosoftSolitaireCollection*", "*FeedbackHub*",
-                "*MixedReality.Portal*", "*GetHelp*", "*Getstarted*",
-                "*WindowsMaps*", "*OfficeHub*"
-            )
-            # Đã xóa *People* khỏi danh sách để tránh đụng chạm lõi hệ thống
+            $Bloatwares = @("*BingWeather*", "*BingNews*", "*BingSports*", "*BingFinance*", "*ZuneVideo*", "*ZuneMusic*", "*SkypeApp*", "*YourPhone*", "*3DBuilder*", "*MicrosoftSolitaireCollection*", "*FeedbackHub*", "*MixedReality.Portal*", "*GetHelp*", "*Getstarted*", "*WindowsMaps*", "*OfficeHub*")
             foreach ($app in $Bloatwares) {
-                # Thêm điều kiện kiểm tra: Chỉ gỡ những App không bị khóa lõi (NonRemovable = False)
-                Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | 
-                Where-Object { $_.NonRemovable -eq $false } | 
-                Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+                Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | Where-Object { $_.NonRemovable -eq $false } | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
             }
 
             GhiLog "B8: Toi uu Trai nghiem UX (NumLock, Mo This PC, Hien duoi File)..."
@@ -162,18 +122,12 @@ $btnOptWinFull.Add_Click({
             GhiLog "B10: Dang lam moi giao dien he thong (Restarting Explorer)..."
             Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
-			# --- TỐI ƯU CHUYÊN SÂU CHO GAMING ---
+            
             GhiLog "B11: Toi uu Gaming (Bat Game Mode, Tat Gia toc chuot de chuan Aim)..."
-            
-            # Bật chế độ Game Mode của Windows (Ưu tiên tài nguyên cho Game)
             Set-Reg "HKCU:\Software\Microsoft\GameBar" "AllowAutoGameMode" 1 "DWord"
-            
-            # Tắt gia tốc chuột (Mouse Acceleration) - Cực kỳ quan trọng cho game thủ FPS
             Set-Reg "HKCU:\Control Panel\Mouse" "MouseSpeed" "0" "String"
             Set-Reg "HKCU:\Control Panel\Mouse" "MouseThreshold1" "0" "String"
             Set-Reg "HKCU:\Control Panel\Mouse" "MouseThreshold2" "0" "String"
-            
-            # Tắt Xbox Game Bar (Cái này ngốn RAM và làm tụt FPS ngầm rất nặng)
             Set-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR" "AllowGameDVR" 0 "DWord"
 
             GhiLog ">>> TOI UU WINDOWS HOAN TAT! <<<"
@@ -200,7 +154,6 @@ $btnOptOfficeFull.Add_Click({
             foreach ($Ver in $OfficeVers) {
                 $Path = "HKCU:\Software\Microsoft\Office\$Ver"
                 if (Test-Path $Path) {
-                    # Toi uu chung & chong treo
                     Set-Reg "$Path\Word\Options" "NoScalingPaperRes" 1
                     Set-Reg "$Path\Word\Options" "MeasurementUnit" 1
                     Set-Reg "$Path\Excel\Options" "AutomatedScaling" 0
@@ -210,7 +163,6 @@ $btnOptOfficeFull.Add_Click({
                     Set-Reg "$Path\Word\Options" "AutoSpell" 0
                     Set-Reg "$Path\Common\General" "DisableBootToOfficeStart" 1
                     
-                    # Chuan ke toan Excel
                     Set-Reg "$Path\Excel\Options" "UseSystemSeparators" 0 "DWord"
                     Set-Reg "$Path\Excel\Options" "DecimalSeparator" "," "String"
                     Set-Reg "$Path\Excel\Options" "ThousandsSeparator" "." "String"
@@ -232,7 +184,6 @@ $btnOptOfficeFull.Add_Click({
                 $word.ActiveWindow.DisplayRulers = $true
                 $word.ActiveWindow.DisplayVerticalRuler = $true
                 
-                # Chuan Nghi dinh 30
                 $doc.PageSetup.PaperSize = 7 
                 $doc.PageSetup.TopMargin = 56.7    
                 $doc.PageSetup.BottomMargin = 56.7 
@@ -269,6 +220,29 @@ $btnOptOfficeFull.Add_Click({
 
             GhiLog ">>> TOI UU OFFICE HOAN TAT! <<<"
             [System.Windows.Forms.MessageBox]::Show("Toi uu Office FULL thanh cong!", "Thanh cong")
+        }
+    }
+})
+
+# ==============================================================================
+# LOGIC 3: ĐỒNG BỘ GIỜ VIỆT NAM (UTC+7)
+# ==============================================================================
+$btnDongBoGio.Add_Click({
+    ChayTacVu "Đang đồng bộ thời gian hệ thống..." {
+        try {
+            # Ép múi giờ về chuẩn Việt Nam
+            Set-TimeZone -Id "SE Asia Standard Time" -ErrorAction Stop
+            
+            # Khởi động lại dịch vụ Thời gian
+            Start-Service -Name w32time -ErrorAction SilentlyContinue
+            Restart-Service -Name w32time -ErrorAction SilentlyContinue
+            
+            # Ép cập nhật giờ
+            w32tm /resync /nowait | Out-Null
+            
+            [System.Windows.Forms.MessageBox]::Show("Đã chuyển múi giờ về Việt Nam (UTC+7) và cập nhật thời gian chuẩn xác!", "Thành công", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("LỖI: Bạn phải chạy phần mềm bằng quyền Quản trị viên (Run as Administrator) mới có thể đổi giờ hệ thống!", "Thiếu quyền", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         }
     }
 })
